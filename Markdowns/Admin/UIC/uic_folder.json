@@ -1,0 +1,15 @@
+{
+  "folders": [
+    {
+      "name": "doc",
+      "path": "/Markdowns/Admin/UIC/doc/doc_folder.json"
+    }
+  ],
+  "files": [
+    {
+      "name": "UIC.md",
+      "path": "/Markdowns/Admin/UIC/UIC.md",
+      "description": ""
+    }
+  ]
+}

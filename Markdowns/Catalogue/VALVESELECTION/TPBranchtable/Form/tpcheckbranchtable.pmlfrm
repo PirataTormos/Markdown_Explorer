@@ -1,0 +1,2353 @@
+------------------------------------------------------------------------
+--
+-- Copyright 1974 to current year. AVEVA Solutions Limited and its subsidiaries. All rights reserved in original code only.
+--
+-- File:            tpcheckbranchtable.pmlfrm
+--   Type:          Form Definition
+--   Group:         Piping Application
+--
+--     Keyword:     PIPING
+--   Module:        design
+--   Replaces:
+--
+-- Author:          Jean François HOUEN
+-- Created:         09/07/2015
+-- Modified:        Alain SAUDEMONT
+-- Mod Date:        20 Nov 2019
+-- Description:
+-- Pipe component check with Branch Table from "SmartPlant Material bullshit"
+--
+------------------------------------------------------------------------
+--
+-- Methods defined:
+--
+--  Method call                            Return              Description
+--  ===========                            ======              ===========
+--
+-- initialise()                            -
+-- tpcheckbranchtable()                    -
+-- refresh()                               -
+-- navigateTo()                            -
+-- autonavigatetoggle()                    -
+-- navigateToDetails()                     -
+-- selectall()                             -
+-- selfromgraphics()                       -
+-- selfromgraphicsdet()                    -
+-- unhighlightgrid()                       -
+-- updateRowsBT()                          -
+-- updateRowsWT()                          -
+-- showDetails()                           -
+-- showDetailsBT()                         -
+-- updateDetailsBT()                       -
+-- showDetailsWT()                         -
+-- updateDetailsWT()                       -
+-- changespref()                           -
+-- getStype(STRING, STRING , STRING)       STRING
+-- getCalcStype( STRING , STRING, STRING)  STRING
+-- getnonegenericspco(DBREF,STRING)        STRING
+-- getCalcWT( STRING , STRING)             STRING
+-- afterSelectChange(ARRAY)                -
+-- afterSelectChangeDetails(ARRAY)         -
+-- closecall()                             -
+-- rightClickGridDetails(ARRAY)            -
+-- rightClickGrid(ARRAY)                   -
+-- saveToExcel()                           -
+-- savedetailsToExcel()                    -
+-- tryupdate(boolean)                      -
+-- addpipe(boolean)                        -
+-- updateRowsWT1()                         -
+-- updateWTlstu(DBREF)                     -
+------------------------------------------------------------------------
+
+
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+-- dll import pour le lecture du fichier XML
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+	import |C:\AVEVA\dll-E3D\PMLXmlDocumentE3D2|
+	handle (1000,0)
+		-- already loaded
+	endhandle
+
+	import 'GridControl'
+	handle any
+	endhandle
+
+	import 'PDMSCommands'
+	handle any
+	endhandle
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+
+
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+-- definition de la forme
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+setup form !!tpcheckbranchtable dialog dock bottom
+
+	using namespace 'Aveva.Core.Presentation'
+	using namespace 'PMLXmlDocument.PMLXmlDocument'
+
+	-- renseigne différents titre ou attributs
+	!this.initcall  = '!this.initialise()'
+	!this.cancelcall  = '!this.closecall()'
+	!this.formTitle = 'Technip Check Branch Table'
+	-- !this.formTitle = 'Technip Check Branch Table/Wall Thickness'
+
+	path down
+
+    frame .tabset tabset dock fill
+        frame .tablePipe 'Pipelines' dock fill
+		    -- !pixmap = !!pml.getpathname('technip.png')
+			-- paragraph .picture at x0.5 ymin+0.1 pixmap /$!pixmap
+			button .refresh  'Refresh'  callback '!this.refresh()'  at x2 y0.2 width 8
+			button .selfromgraphics 'Select from graphics'callback '!this.selfromgraphics()' at  xmax + 1 ymin width 14
+			toggle .enhance  'Enhance details' tagwid 12 at xmax + 1 ymin callback '' states 'FALSE' 'TRUE'
+			toggle .autonavigate 'Auto. Navigate' at xmax + 0.5 ymin callback '!this.autonavigatetoggle()' states 'FALSE' 'TRUE'
+			-- paragraph .selectionStatus  anchor R+T at xmax form + 7 Y0.2 width 20 lines 3
+			container .gridFrame nobox PmlNetControl 'grid' anchor left+right+top+bottom at x0 ymax+0.7 width 120 hei 10
+			paragraph .selectionStatus  anchor R+T at xmax.gridFrame-20 Y0.2 width 20 lines 3
+		exit
+		frame .tableDetails 'Details' dock fill
+			toggle .autonavigatedet ' Auto. Navigate ' at x0.5 ymin callback '' states 'FALSE' 'TRUE'
+			button .selfromgraphicsdet ' Select from graphics 'callback '!this.selfromgraphicsdet()' at  xmax + 0.5 ymin
+			container .gridFrameDetails nobox PmlNetControl 'grid' anchor left+right+top+bottom at x0.5 ymax width 120 hei 5
+		exit
+	exit
+
+
+	menu .gridPopup popup
+	!this.gridPopup.add( 'CALLBACK', 'Select All', '!this.selectall()', 'selectall' )
+	!this.gridPopup.add('SEPARATOR')
+	!this.gridPopup.add( 'CALLBACK', 'Add Pipe to Screen', '!this.addpipe(false)', 'addpipe' )
+	!this.gridPopup.add( 'CALLBACK', 'Add Pipe Only to Screen', '!this.addpipe(true)', 'addpipeonly' )
+	!this.gridPopup.add('SEPARATOR')
+	!this.gridPopup.add( 'CALLBACK', 'Navigate To', '!this.navigateTo()', 'navigateto' )
+	!this.gridPopup.add('SEPARATOR')
+	!this.gridPopup.add( 'CALLBACK', 'Check Branch Table...', '!this.updateRowsBT()' )
+	!this.gridPopup.add( 'CALLBACK', 'Check Wall Thickness...', '!this.updateRowsWT()', 'updaterowswt' )
+	--!this.gridPopup.add( 'CALLBACK', 'Update Wall Thickness...', '!this.updateRowsWT1()', 'updaterowswt' )
+	!this.gridPopup.add('SEPARATOR')
+	!this.gridPopup.add( 'CALLBACK', 'Show Details', '!this.showdetails()', 'showdetails' )
+	!this.gridPopup.add('SEPARATOR')
+	!this.gridPopup.add( 'CALLBACK', 'Export to Excel...', '!this.saveToExcel()', 'savetoexcel' )
+
+	-- on grise le menu show details
+	!this.gridPopup.SetFieldProperty('showdetails' , 'ACTIVE' ,false)
+
+	menu .gridPopupDetails popup
+	!this.gridPopupDetails.add( 'CALLBACK', 'Navigate To', '!this.navigateToDetails()', 'navigateto' )
+	!this.gridPopupDetails.add('SEPARATOR')
+	!this.gridPopupDetails.add( 'CALLBACK', 'Add Pipe to Screen', '!this.addpipe(false)', 'addpipedet' )
+	!this.gridPopupDetails.add( 'CALLBACK', 'Add Pipe Only to Screen', '!this.addpipe(true)', 'addpipedetonly' )
+	!this.gridPopupDetails.add('SEPARATOR')
+	!this.gridPopupDetails.add( 'CALLBACK', 'Spec Search', '!this.changespref()', 'specsearch' )
+	!this.gridPopupDetails.add( 'CALLBACK', 'Try Update', '!this.tryupdate(false)', 'tryupdate' )
+	!this.gridPopupDetails.add( 'CALLBACK', 'Try Update and hier.', '!this.tryupdate(true)', 'tryupdatehier' )
+	!this.gridPopupDetails.add('SEPARATOR')
+	!this.gridPopupDetails.add( 'CALLBACK', 'Export to Excel...', '!this.savedetailsToExcel()', 'savedetailstoexcel' )
+
+	member .grid                 is NetGridControl
+	member .gridDetails          is NetGridControl
+	member .elements             is ARRAY
+	member .branchtablexmldoc    is PMLXmlDocument
+	member .linelistcalcwtxmldoc is PMLXmlDocument
+	member .configxmldoc         is PMLXmlDocument
+	member .workingmode          is string
+	member .expression           is string
+	member .inchformat           is format
+	member .selectionmode        is string
+	-- member .linelistcalcbtxmldoc is PMLXmlDocument
+
+exit
+
+------------------------------------------------------------------------
+--
+-- Method:      initialise
+--
+-- Description: Initialise
+--
+-- Method Type: Function/Procedure
+-- Arguments:
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .initialise()
+
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      tpcheckbranchtable
+--
+-- Description: Constructor method
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .tpcheckbranchtable()
+
+	using namespace 'Aveva.Core.Presentation'
+
+	!this.grid = object NetGridControl()
+	!this.gridFrame.control = !this.grid.handle()
+
+	!this.gridDetails = object NetGridControl()
+	!this.gridFrameDetails.control = !this.gridDetails.handle()
+
+	!this.grid.addeventhandler('AfterSelectChange', !this, 'afterSelectChange')
+	!this.grid.addeventhandler('OnPopup', !this, 'rightClickGrid')
+	!this.gridDetails.addeventhandler('OnPopup', !this, 'rightClickGridDetails')
+	!this.gridDetails.addeventhandler('AfterSelectChange', !this, 'afterSelectChangeDetails')
+
+	--!this.picture.addPixmap('technip.png')
+	
+
+	-- on définit le format pour les INCH
+  	!this.inchformat = object format()
+	!this.inchformat.units = 'INCH'
+	
+	!this.refresh.SetToolTip('Resets the grid layout and collects all PIPE elements for CE')
+	!this.selfromgraphics.SetToolTip('Attempts to select the owning PIPE in the grid')
+	!this.selfromgraphicsdet.SetToolTip('Attempts to select the current element in the grid')
+
+
+	-- on grise le bouton 'select from graphics'
+	!this.selfromgraphics.active = false
+	
+	-- on grise le bouton 'select from graphics' de la form details
+	!this.selfromgraphicsdet.active = false
+	
+
+	-- selection simple sur la grille de "details"
+	!this.gridDetails.SingleRowSelection(true)
+
+	-- namespace
+	using namespace 'PMLXmlDocument.PMLXmlDocument'
+
+	-- récupère le code du projet
+	!project = current project
+	!projectcode = !project.code()
+
+	-- initialise le fichier XML pour les branch table
+	!this.branchtablexmldoc = object PMLXmlDocument()
+	!dfltsfile = object file('%' & !projectcode & 'DFLTS%\TPBranchtable\Spec_Branch.xml')
+	!this.branchtablexmldoc.load(!dfltsfile.fullname())
+
+	-- initialise le fichier XML pour les branch table calculées
+	-- !this.linelistcalcbtxmldoc = object PMLXmlDocument()
+	-- !dfltsfile = object file('%' & !projectcode & 'DFLTS%\TPBranchtable\LineListCalcBT.xml')
+	-- !this.linelistcalcbtxmldoc.load(!dfltsfile.fullname())
+
+	-- initialise le fichier XML pour la config
+	!this.configxmldoc = object PMLXmlDocument()
+	!dfltsfile = object file('%' & !projectcode & 'DFLTS%\TPBranchtable\Config.xml')
+	!this.configxmldoc.load(!dfltsfile.fullname())
+
+	-- récupère les noeuds settings dans le XML config
+	!expression = !this.configxmldoc.selectnodes(|//Setting[@name='Expression']|)
+	!this.expression = !expression[1].value('@value')
+	-- q var !this.expression
+
+	-- on grise ou non le menu "Update Wall Thickness" selon la variable d'environement
+	var !tpwtactive evar TPWTACTIVE
+	if !tpwtactive.neq(||) then
+		if boolean(!tpwtactive.upcase()) then
+			!this.gridPopup.SetFieldProperty('updaterowswt' , 'ACTIVE' ,true)
+			!this.gridPopupDetails.SetFieldProperty('tryupdate' , 'ACTIVE' ,true)
+			!this.gridPopupDetails.SetFieldProperty('tryupdatehier' , 'ACTIVE' ,true)
+			-- initialise le fichier XML pour les épaisseurs calculées
+			!this.linelistcalcwtxmldoc = object PMLXmlDocument()
+			!dfltsfile = object file('%' & !projectcode & 'DFLTS%\Design\LineListCalcWT.xml')
+			!this.linelistcalcwtxmldoc.load(!dfltsfile.fullname())
+		else
+			!this.gridPopup.SetFieldProperty('updaterowswt' , 'ACTIVE' ,false)
+			!this.gridPopupDetails.SetFieldProperty('tryupdate' , 'ACTIVE' ,false)
+			!this.gridPopupDetails.SetFieldProperty('tryupdatehier' , 'ACTIVE' ,false)
+		endif
+	else
+		!this.gridPopup.SetFieldProperty('updaterowswt' , 'ACTIVE' ,false)
+		!this.gridPopupDetails.SetFieldProperty('tryupdate' , 'ACTIVE' ,false)
+		!this.gridPopupDetails.SetFieldProperty('tryupdatehier' , 'ACTIVE' ,false)
+	endif
+
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      refresh
+--
+-- Description: on raffraichit la grille principale
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .refresh()
+	unenhance all
+	-- gestion progress bar
+	!!FMSYS.Setprogress(0)
+
+	-- on grise le menu show details
+	!this.gridPopup.SetFieldProperty('showdetails' , 'ACTIVE' ,false)
+
+	-- on degrise le bouton 'select from graphics'
+	!this.selfromgraphics.active = true
+
+	-- on nettoie la grille "details"
+	!this.selectionmode = 'BYCODE'
+	!this.gridDetails.ClearGrid()
+    !this.selectionmode = 'BYUSER'
+	
+	-- on efface le selection status
+	!this.selectionStatus.val = ''
+	!this.selectionStatus.visible = FALSE
+
+	-- on active l'onglet "pipes"
+	!this.tablePipe.visible = true
+
+	-- clear the grid
+	!this.selectionmode = 'BYCODE'
+	!this.grid.cleargrid()
+	!this.selectionmode = 'BYUSER'
+	-- Create headings
+	!headings    = ARRAY()
+	!headings[1] = 'Name'
+	!headings[2] = 'Type'
+	!headings[3] = 'Owner'
+	!headings[4] = 'Status'
+	!headings[5] = 'Piping Spec'
+	!headings[6] = 'Function'
+	!headings[7] = 'Desc'
+
+	-- Create model items for population of grid
+	var !allpipe collect all PIPE with not badref(PSPE) for CE
+	!data = array()
+	do !pipe values !allpipe
+		!pipeobj = object DBREF(!pipe)
+		!b = array()
+		!b.append(!pipeobj.name)
+		!b.append(!pipeobj.type)
+		!b.append(!pipeobj.owner.name)
+		!b.append('')
+		!b.append(!pipeobj.pspe.name)
+		!b.append(!pipeobj.function)
+		!b.append(!pipeobj.desc)
+		!data.append(!b)
+	 enddo
+
+	-- Bind data to grid
+	using namespace  'Aveva.Core.Presentation'
+	!nds = object NetDataSource('Grid Control Example', !headings, !data)
+	!this.grid.BindToDataSource(!nds)
+
+	-- Set grid parameters
+	!this.grid.ColumnExcelFilter(TRUE)
+	!this.grid.setNameColumnImage()
+	!this.grid.OutlookGroupStyle(TRUE)
+	!this.grid.FixedHeaders(FALSE)
+	!this.grid.FixedRows(FALSE)
+	!this.grid.ColumnSummaries(TRUE)
+	!this.grid.AutoFitColumns()
+	!this.grid.setAlternateRowColor('grey')
+
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      navigateTo
+--
+-- Description: methode permettant de naviguer sur le PIPE sélectionné dans la grille
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .navigateTo()
+	!selectedRows = !this.grid.GetSelectedRows()
+	if !selectedRows.size() gt 0 then
+		PIPE $!selectedRows[1][1]
+	endif
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      autonavigatetoggle
+--
+-- Description: methode appelée par la case à cocher "Navigate Auto" de la grille principale
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .autonavigatetoggle()
+	if !this.autonavigate.val eq true then
+		-- la grille passe en simple sélection
+		!this.grid.SingleRowSelection(true)
+		-- on efface la selection en cours
+		!this.grid.clearRowSelection()
+		-- on grise le menu 'select all'
+		!this.gridPopup.SetFieldProperty('selectall' , 'ACTIVE' ,false)
+	else
+		-- la grille passe en multiple sélection
+		!this.grid.SingleRowSelection(false)
+		-- on active le menu 'select all'
+		!this.gridPopup.SetFieldProperty('selectall' , 'ACTIVE' ,true)
+	endif
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      navigateToDetails
+--
+-- Description: cette méthode permet de naviguer sur un objet de la base depuis une ligne de la grille
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .navigateToDetails()
+	!selectedRows = !this.gridDetails.GetSelectedRows()
+	!ref = !selectedRows[1][1]
+	!refobj = object dbref(!ref)
+	!type = !refobj.acttyp
+	$!type $!ref
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      selectall
+--
+-- Description: methode permettant de naviguer sur le PIPE sélectionné dans la grille
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .selectall()
+	!this.grid.selectallrows()
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      selfromgraphics
+--
+-- Description: cette méthode permet de naviguer dans la grille depuis le CE
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .selfromgraphics()
+	-- on essaye de récupérer le PIPE du CE
+	!oldce = !!ce
+	PIPE
+	handle (2,111)
+		!!alert.error('Cannot navigate to a PIPE from Current Element')
+	elsehandle none
+		!pipename = !!ce.name
+		!!ce = !oldce
+		!this.selectionmode = 'BYCODE'
+		-- selectionne le pipe dans la grille
+		!rownum = !this.grid.getcolumn(1).findfirst(!pipename)
+		if not unset(!rownum) then
+			!this.grid.clearRowSelection()
+			!this.grid.selectRow(!rownum)
+			handle any
+				!!alert.error('The PIPE could not be found in the grid. Please use the Refresh button.')
+				
+			endhandle
+		else
+			!!alert.error('The PIPE could not be found in the grid. Please use the Refresh button.')
+		endif
+		!this.selectionmode = 'BYUSER'
+	endhandle
+endmethod
+
+define method .selfromgraphicsdet()
+        !this.selectionmode = 'BYCODE'
+		-- selectionne le ce dans la grille
+		!rownum = !this.griddetails.getcolumn(1).findfirst(!!ce.name)
+		if not unset(!rownum) then
+			!this.griddetails.clearRowSelection()
+			!this.griddetails.selectRow(!rownum)
+			handle any
+				!!alert.error('The CE could not be found in the grid.')
+			endhandle
+		else
+			!!alert.error('The CE could not be found in the grid.')
+		endif
+		!this.selectionmode = 'BYUSER'
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      unhighlightgrid
+--
+-- Description: cette methode nettoie la grille de toute mise en surbrillance
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .unhighlightgrid()
+!this.grid.resetCellFeedback()
+!Rows = !this.grid.GetRows()
+
+!rownum = 0
+	do !row values !Rows
+		!rownum = !rownum + 1
+		-- on teste si la cellule "status" n'est pas vide
+		if not !this.grid.getcell(!rownum, 4) eq '' then
+		!pipe = object DBREF(!row[1])
+		-- on teste si la ligne est pair ou impair
+		!list = '02468'
+		!rownumstr = !rownum.string()
+			if !list.occurs(!rownumstr.substring(-1,1)) eq 1 then
+			  !alternatecolor  = 'grey'
+			else
+				!alternatecolor  = 'white'
+			endif
+
+			!this.grid.setCellValue(!rownum, 4 , '')
+			!this.grid.setCellColor(!rownum, 4 , '$!alternatecolor')
+			!this.grid.setCellImage(!rownum,4, '')
+			-- on reset le tooltip de la ligne
+			!this.grid.setRowTooltip(!rownum, '')
+		  endif
+		-- gestion progressbar
+		!progress = !rownum / !Rows.size() * 100 * 0.1
+		!!FMSYS.Setprogress(!progress)
+	enddo
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      updateRowsBT
+--
+-- Description: cette méthode lance la vérification pour les branch table
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .updateRowsBT()
+	unenhance all
+	-- gestion du mode
+	!this.workingmode = 'BT'
+	-- gestion des unités
+	var !UNITS UNITS
+	if (MATCH(|$!UNITS|,|MM Bore|) neq 0) THEN
+	  var !unittext |mm|
+	else
+	  var !unittext |in|
+	endif
+	-- save ce
+	!oldce = !!ce
+	-- on efface le selection status
+	!this.selectionStatus.val = ''
+	!this.selectionStatus.visible = FALSE
+
+	!pixmap = !!pml.getpathname('exclamation-16.png')
+
+	-- on efface les couleurs existantes
+	!this.unhighlightgrid()
+
+	-- gestion progressbar
+	!progressline = 0
+
+	-- comptage des erreurs
+	!totalerror = 0
+
+	!selectedRows = !this.grid.GetSelectedRows()
+	!rownumori = 0
+	do !row values !selectedRows
+		!errornum = 0
+		!warnnum = 0
+		!rownumori = !rownumori + 1
+		!pipe = object DBREF(!row[1])
+
+		!spec = !pipe.pspe.namn
+		!pipename = !pipe.name
+		-- converti le pipename
+		!exp = !this.expression
+		!!ce = !pipe
+		var !newpipename $!exp
+
+		-- collecte des TEE et des OLET du pipe
+		var !pipemem collect all with type eq 'TEE' or type eq 'OLET' for $!pipe
+		!memcount = 0
+		do !mem values !pipemem
+			!memcount = !memcount + 1
+			!memobj = object DBREF('$!mem')
+			-- teste si le composant a été forcé
+			if !memobj.:tp-brforce eq true then
+				!warnnum = !warnnum + 1
+			else
+				!headerbore = !memobj.ppbore[1].string().before(!unittext)
+				!branchbore = !memobj.ppbore[3].string().before(!unittext)
+				-- on gère les unités : MARIAN ne travaille qu'en INCH
+				if (MATCH(|$!UNITS|,|MM Bore|) neq 0) THEN
+					-- le projet est en mm
+					!tpcurbore = object bore()
+					!tpcurbore.bore(!headerbore.real())
+					!headerbore = !tpcurbore.string(!this.inchformat)
+					!headerbore = !headerbore.replace('.50','.5').replace('.00','').replace('0.','.')
+					!tpcurbore.bore(!branchbore.real())
+					!branchbore = !tpcurbore.string(!this.inchformat)
+					!branchbore = !branchbore.replace('.50','.5').replace('.00','').replace('0.','.')
+				else
+					-- le projet est en inches
+					!headerbore = !headerbore.replace('.50','.5').replace('.00','').replace('0.','.')
+					!branchbore = !branchbore.replace('.50','.5').replace('.00','').replace('0.','.')
+				endif
+				-- on verifie que le composant est bien du bon type
+
+				-- récupère le noeud pipename dans le XML branch table
+				!stype = !this.getStype(!spec,!headerbore,!branchbore).before('#')
+				-- si le STYP du tableau de branch est CALC, alors il faut le calculer
+				if !stype eq 'CALC' then
+					-- récupère le STYPE calculé
+					!stype = !this.getCalcStype(!headerbore,!branchbore,!newpipename).before('#')
+				endif
+
+				-- check if styp is correct
+				if !memobj.stype.before('_') ne !stype then
+					!errornum = !errornum + 1
+				endif
+			endif
+			-- on affiche un progress intermédiaire comme c'est une opération plus longue
+			!progress = 10 + !progressline + ( ( 1 / !selectedRows.size() * 0.8 ) * !memcount / !pipemem.size()  ) * 100
+			!!FMSYS.Setprogress(!progress)
+		enddo
+
+
+		-- récupère le n° de ligne réel dans la grille
+		!selrow = !this.grid.getselectedrowTags()[!rownumori]
+		!rownum = !this.grid.getcolumn(0).findfirst(!selrow)
+
+		-- on affiche la couleur
+		if !errornum eq 0 then
+			-- vert/orange
+			if !warnnum eq 0 then
+				!this.grid.setCellValue(!rownum,4, 'Passed')
+				!this.grid.setCellColor(!rownum, 4 , 'lightgreen')
+				!this.grid.setCellImage(!rownum,4, '')
+				!tooltip = 'All the TEE or OLET were compliant with the Branch Table for pipe ' + !pipe.name
+			else
+				!totalerror = !totalerror + 1
+				!this.grid.setCellValue(!rownum,4, 'Forced')
+				!this.grid.setCellColor(!rownum, 4 , 'orange')
+				!this.grid.setCellImage(!rownum,4, !pixmap)
+				!tooltip = 'Some TEE or OLET have not been placed using "Use Branch Conn" option for pipe ' + !pipe.name
+			endif
+		else
+			!totalerror = !totalerror + 1
+			-- rouge
+			!this.grid.setCellValue(!rownum,4, 'Failed')
+			!this.grid.setCellColor(!rownum, 4 , 'salmon')
+			!this.grid.setCellImage(!rownum,4, !pixmap)
+			!tooltip = 'Some TEE or OLET were not compliant with the Branch Table for pipe ' + !pipe.name
+		endif
+
+		-- on set le tooltip de la ligne
+		!this.grid.setRowTooltip(!rownum, !tooltip)
+
+		-- gestion progressbar
+		!progressline = !rownumori / !selectedRows.size() * 100 * 0.8
+		!progress = 10 + !progressline
+		!!FMSYS.Setprogress(!progress)
+	enddo
+
+	!this.grid.AutoFitColumns()
+
+	-- restore ce
+	$!oldce
+
+	-- on efface la sélection
+	!this.grid.clearRowSelection()
+
+	-- set progressbar
+	!!FMSYS.Setprogress(0)
+
+	-- on met à jour le sélection status
+	!successnum = !rownumori - !totalerror
+	!this.selectionStatus.visible = true
+
+	!this.selectionStatus.val = 'Applied successfully to :   $!successnum                     Fails to apply to             :   $!totalerror                           Total Selection               :   $!rownumori '
+	if !totalerror gt 0 then
+		!this.selectionStatus.background = 3
+	else
+		!this.selectionStatus.background = 5
+	endif
+
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      updateRowsWT
+--
+-- Description: cette méthode lance la vérification pour les wall thickness
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .updateRowsWT()
+	unenhance all
+	-- gestion du mode
+	!this.workingmode = 'WT'
+	-- gestion des unités
+	var !UNITS UNITS
+	if (MATCH(|$!UNITS|,|MM Bore|) neq 0) THEN
+	  var !unittext |mm|
+	else
+	  var !unittext |in|
+	endif
+	-- save ce
+	!oldce = !!ce
+	-- on efface le selection status
+	!this.selectionStatus.val = ''
+	!this.selectionStatus.visible = FALSE
+
+	!pixmap = !!pml.getpathname('exclamation-16.png')
+
+	-- on efface les couleurs existantes
+	!this.unhighlightgrid()
+
+	-- gestion progressbar
+	!progressline = 0
+
+	-- comptage des erreurs
+	!totalerror = 0
+
+	!selectedRows = !this.grid.GetSelectedRows()
+	!rownumori = 0
+	do !row values !selectedRows
+		!errornum = 0
+		!warnnum = 0
+		!rownumori = !rownumori + 1
+		!pipe = object DBREF(!row[1])
+
+		!spec = !pipe.pspe.namn
+		!pipename = !pipe.name
+		-- converti le pipename
+		!exp = !this.expression
+		var !newpipename $!exp
+
+		-- à partir de la ça change par rapport à BT
+		-- en mode checck, on va vérifier le LSTU en même temps que le composant
+		-- et le HSTU de la bran
+		
+		-- collecte de tous les objets de la branche ( sauf tubi )
+		var !pipemem collect all with type ne 'TUBI' and type ne 'PIPE' for $!pipe
+		do !mem values !pipemem
+		    !memobj = object dbref(!mem)
+			if !memobj.type eq 'BRAN' then
+				-- cas des branches
+				-- current hstu
+				if badref(!memobj.hstu) then
+					!hstuname = 'nulref'
+				else
+					!hstuname = !memobj.hstu.name
+				endif
+				-- target hstu
+				-- on regarde si le spco a pu être trouvé
+				!newhstu = !this.getnonegenericspco(!memobj.hstu,!newpipename)
+				if not !newhstu.before('#') eq 'Target not found' then 
+					!newhstuobj = object dbref(!newhstu)
+					!newhstuname = !newhstuobj.name
+				else
+					!newhstuname = 'HSTU-NOT-FOUND'
+				endif
+				-- comptage des erreurs
+				if not !hstuname eq !newhstuname then
+					!errornum = !errornum + 1
+				endif
+			else 
+			-- cas des composants
+				-- current spref
+				if badref(!memobj.spref) then
+					!sprefname = 'nulref'
+				else
+					!sprefname = !memobj.spref.name
+				endif
+				-- target spref
+				!newspref = !this.getnonegenericspco(!memobj.spref,!newpipename)
+				if not !newspref.before('#') eq 'Target not found' then 
+					!newsprefobj = object dbref(!newspref)
+					!newsprefname = !newsprefobj.name
+				else
+					!newsprefname = 'SPRE-NOT-FOUND'
+				endif
+				-- comptage des erreurs
+				if not !sprefname eq !newsprefname then
+					!errornum = !errornum + 1
+				endif
+				-- current lstu
+				if badref(!memobj.lstu) then
+					!lstuname = 'nulref'
+				else
+					!lstuname = !memobj.lstu.name
+				endif
+				-- target lstu
+				--q var !memobj.ref
+				!newlstu = !this.getnonegenericspco(!memobj.lstu,!newpipename)
+				if not !newlstu.before('#') eq 'Target not found' then 
+					!newlstuobj = object dbref(!newlstu)
+					!newlstuname = !newlstuobj.name
+				else
+					!newlstuname = 'LSTU-NOT-FOUND'
+				endif
+				-- comptage des erreurs
+				if not !lstuname eq !newlstuname then
+					!errornum = !errornum + 1
+				endif
+			endif
+
+		enddo
+
+		-- récupère le n° de ligne réel dans la grille
+		!selrow = !this.grid.getselectedrowTags()[!rownumori]
+		!rownum = !this.grid.getcolumn(0).findfirst(!selrow)
+
+		-- on affiche la couleur
+		if !errornum eq 0 then
+			-- vert
+			!this.grid.setCellValue(!rownum,4, 'Passed')
+			!this.grid.setCellColor(!rownum, 4 , 'lightgreen')
+			!this.grid.setCellImage(!rownum,4, '')
+			!tooltip = 'All components "wall thickness" were compliant with the "wall thickness calculation table" for pipe ' + !pipe.name
+		else
+			!totalerror = !totalerror + 1
+			-- rouge
+			!this.grid.setCellValue(!rownum,4, 'Failed')
+			!this.grid.setCellColor(!rownum, 4 , 'salmon')
+			!this.grid.setCellImage(!rownum,4, !pixmap)
+			!tooltip = 'Some components "wall thickness" were not compliant with the "wall thickness calculation table" for pipe ' + !pipe.name
+		endif
+
+		-- on set le tooltip de la ligne
+		!this.grid.setRowTooltip(!rownum, !tooltip)
+
+		-- gestion progressbar
+		!progressline = !rownumori / !selectedRows.size() * 100 * 0.8
+		!progress = 10 + !progressline
+		!!FMSYS.Setprogress(!progress)
+	enddo
+
+	!this.grid.AutoFitColumns()
+
+	-- restore ce
+	$!oldce
+
+	-- on efface la sélection
+	!this.grid.clearRowSelection()
+
+	-- set progressbar
+	!!FMSYS.Setprogress(100)
+
+	-- on met à jour le sélection status
+	!successnum = !rownumori - !totalerror
+	!this.selectionStatus.visible = true
+
+	!this.selectionStatus.val = 'Applied successfully to :   $!successnum                     Fails to apply to             :   $!totalerror                           Total Selection               :   $!rownumori '
+	if !totalerror gt 0 then
+		!this.selectionStatus.background = 3
+	else
+		!this.selectionStatus.background = 5
+	endif
+
+
+
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      showDetails
+--
+-- Description: cette méthode affiche les détails du pipe dans la seconde grille
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .showDetails()
+	if !this.workingmode eq 'WT' then
+		!this.showDetailsWT()
+	else
+		!this.showDetailsBT()
+	endif
+	-- on degrise le bouton 'sel from graphics' de la form details
+	!this.selfromgraphicsdet.active = true
+	
+	!this.tabledetails.selected = true
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      showDetailsBT
+--
+-- Description: cette méthode affiche les détails du pipe dans la seconde grille pour les branch table
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .showDetailsBT()
+	-- gestion des unités
+	var !UNITS UNITS
+	if (MATCH(|$!UNITS|,|MM Bore|) neq 0) THEN
+		var !unittext |mm|
+	else
+		var !unittext |in|
+	endif
+
+	-- on active l'onglet "details"
+	!this.tableDetails.visible = true
+
+	!selrow = !this.grid.getselectedrowTags()[1]
+	!rownum = !this.grid.getcolumn(0).findfirst(!selrow)
+	!pipename = !this.grid.GetCell(!rownum, 1)
+	!pipe = object DBREF(!pipename)
+
+    -- converti le pipename
+    !exp = !this.expression
+	!!ce = !pipe
+    var !newpipename $!exp
+
+	-- on définit les colonnes de la grille de detail
+
+	-- clear the grid
+	!this.selectionmode = 'BYCODE'
+	!this.gridDetails.cleargrid()
+	!this.selectionmode = 'BYUSER'
+	-- Create headings
+	!headings    = ARRAY()
+	!headings[1] = 'Name'
+	!headings[2] = 'Type'
+	!headings[3] = 'Owner'
+	!headings[4] = 'Status'
+	!headings[5] = 'Piping Specification'
+	!headings[6] = 'Header Diameter'
+	!headings[7] = 'Branch Diameter'
+	!headings[8] = 'Current Stype'
+	!headings[9] = 'Target Stype'
+	!headings[10] = 'Error Message'
+	!headings[11] = 'User Name'
+	!headings[12] = 'Date'
+	!headings[13] = 'Time'
+	!headings[14] = 'Reason'
+	!data = object array()
+
+	-- on s'occupe du pipe lui même
+	!pipeobj = object DBREF(!pipename)
+	!b = array()
+	!b.append(!pipeobj.name)
+	!b.append(!pipeobj.type)
+	!b.append(!pipeobj.owner.name)
+	!b.append('')
+	!pspename = !pipeobj.pspe.name
+	!b.append(!pspename)
+	-- spref ne s'applique pas sur les lignes
+	!b.append('None Applicable')
+	!b.append('None Applicable')
+	!b.append('None Applicable')
+	!b.append('None Applicable')
+	!b.append('')
+	!data.append(!b)
+
+
+	-- des branches
+	var !allbran collect all BRAN for $!pipename
+
+	!countbran = 0
+	do !bran values !allbran
+		!countbran = !countbran + 1
+		-- on s'occupe de la branche d'abord
+		!branobj = object DBREF(!bran)
+		!b = array()
+		!b.append(!branobj.name)
+		!b.append(!branobj.type)
+		!b.append(!branobj.owner.name)
+		!b.append('')
+		!pspename = !branobj.pspe.name
+		!b.append(!pspename)
+		-- spref ne s'applique pas sur les branches
+		!b.append('None Applicable')
+		!b.append('None Applicable')
+		!b.append('None Applicable')
+		!b.append('None Applicable')
+		!b.append('')
+		!data.append(!b)
+
+		-- on s'occupe des membres de la branche
+		var !allmem collect all with type eq 'TEE' or type eq 'OLET' for $!bran
+		do !mem values !allmem
+			!memobj = object DBREF(!mem)
+			!b = array()
+			-- Colonne Name
+			!b.append(!memobj.name)
+			-- Coplonne Type
+			!b.append(!memobj.type)
+			-- Colonne Owner
+			!b.append(!memobj.owner.name)
+			-- Colonne status
+			!b.append('')
+			-- Colonne Piping Specification
+		    if badref(!memobj.spown) then
+				!sprefname = 'nulref'
+			else
+				!sprefname = !memobj.spown.name
+			endif
+			!b.append(!sprefname)
+			-- header bore
+			!headerbore = !memobj.ppbore[1].string().before(!unittext)
+			-- Colonne Header Diameter
+			!b.append(!headerbore)
+			-- branch bore
+			!branchbore = !memobj.ppbore[3].string().before(!unittext)
+			-- spref s'applique aux composants
+			-- Colonne Branch Diameter
+			!b.append(!branchbore)
+			-- Colonne Current Type
+			!b.append(!memobj.stype.before('_'))
+
+			-- on gère les unités : MARIAN ne travaille qu'en INCH
+			if (MATCH(|$!UNITS|,|MM Bore|) neq 0) THEN
+				-- le projet est en mm
+				!tpcurbore = object bore()
+				!tpcurbore.bore(!headerbore.real())
+				!headerbore = !tpcurbore.string(!this.inchformat)
+				!headerbore = !headerbore.replace('.50','.5').replace('.00','').replace('0.','.')
+				!tpcurbore.bore(!branchbore.real())
+				!branchbore = !tpcurbore.string(!this.inchformat)
+				!branchbore = !branchbore.replace('.50','.5').replace('.00','').replace('0.','.')
+			else
+				-- le projet est en inches
+				!headerbore = !headerbore.replace('.50','.5').replace('.00','').replace('0.','.')
+				!branchbore = !branchbore.replace('.50','.5').replace('.00','').replace('0.','.')
+			endif
+
+			-- on retrouve le STYPE target
+			-- !spec = !memobj.owner.pspe.namn
+			!spec = !memobj.spown.namn
+			!stype = !this.getStype(!spec,!headerbore,!branchbore)
+			!errormsg = !stype.after('#')
+			if !stype.before('#') eq 'CALC' then
+				!stype = !this.getCalcStype(!headerbore,!branchbore,!newpipename)
+				!errormsg = !stype.after('#')
+			endif
+			!b.append(!stype.before('#'))
+			!b.append(!stype.after('#'))
+		    !data.append(!b)
+
+		enddo
+
+    -- progress bar
+    !progress = !countbran / !allbran.size() * 100 * 0.05
+    !!FMSYS.Setprogress(!progress)
+
+    enddo
+
+	-- Bind data to grid
+	using namespace  'Aveva.Core.Presentation'
+	!nds = object NetDataSource('Grid Control Example', !headings, !data)
+	!this.gridDetails.BindToDataSource(!nds)
+
+	unenhance all
+	if !this.enhance.val eq TRUE then
+		enhance $!pipeobj col white
+	endif
+	-- affiche les status et les couleurs
+	!this.updateDetailsBT()
+
+	-- set grid properties
+	!this.gridDetails.AutoFitColumns()
+	!this.gridDetails.setAlternateRowColor('grey')
+
+	-- navigue sur le pipe
+	$!pipename
+
+	-- Hide the progress bar
+    !!FMSYS.Setprogress(0)
+
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      updateDetailsBT
+--
+-- Description: cette méthode met à jour la grille "details" pour les branch table : couleurs et messages
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .updateDetailsBT()
+	-- on reparcours la grille et on met status/couleur
+	!pixmap = !!pml.getpathname('exclamation-16.png')
+	!Rows = !this.gridDetails.GetRows()
+
+	-- set progressbar
+	!!FMSYS.Setprogress(0)
+
+
+	!rownum = 0
+	do !row values !Rows
+		!rownum = !rownum + 1
+		!mem = object DBREF(!row[1])
+
+		-- on ne fait rien pour les PIPE et les BRAN
+		if not !mem.type eq 'PIPE' and not !mem.type eq 'BRAN' then
+			-- on regarde si le composant a été forcé ou non
+			if !mem.:TP-BRFORCE eq true then
+				if !this.enhance.val eq TRUE then
+					  enhance $!mem col orangered
+				endif
+				!this.gridDetails.setCellColor(!rownum, 4 , 'orange')
+				!this.gridDetails.setCellValue(!rownum,4, 'Forced')
+				!this.gridDetails.setCellImage(!rownum,4, !pixmap)
+				!this.gridDetails.setcellvalue(!rownum, 10, 'This component has not been placed using "Use Branch Conn" option')
+				!this.gridDetails.setCellColor(!rownum, 10 , 'lightyellow')
+				-- user/date/time
+				!this.gridDetails.setCellValue(!rownum,11, !mem.:TP-BRUSER)
+				!this.gridDetails.setCellValue(!rownum,12, !mem.:TP-BRDATE)
+				!this.gridDetails.setCellValue(!rownum,13, !mem.:TP-BRTIME)
+				!this.gridDetails.setCellValue(!rownum,14, !mem.:TP-BRJUST)
+			else
+				-- on va comparer les STYPE
+				if !this.gridDetails.getcell(!rownum, 8 ) ne !this.gridDetails.getcell(!rownum, 9 ) then
+					if !this.enhance.val eq TRUE then
+					  enhance $!mem col red
+					endif
+					!this.gridDetails.setCellColor(!rownum, 4 , 'salmon')
+					!this.gridDetails.setCellValue(!rownum,4, 'Failed')
+					!this.gridDetails.setCellImage(!rownum,4, !pixmap)
+					if !this.gridDetails.getcell(!rownum, 10 ) eq '' then
+						!this.gridDetails.setcellvalue(!rownum, 10, 'Current styp and target stype are different')
+					endif
+					!this.gridDetails.setCellColor(!rownum, 10 , 'lightyellow')
+				else
+					!this.gridDetails.setCellColor(!rownum, 4 , 'lightgreen')
+					!this.gridDetails.setCellValue(!rownum,4, 'Passed')
+					if !this.enhance.val eq TRUE then
+						enhance $!mem col green
+					endif
+				endif
+			endif
+		endif
+
+		-- progress bar
+		!progress = !rownum / !rows.size() * 100 * 0.95 + 5
+		!!FMSYS.Setprogress(!progress)
+	enddo
+	
+	-- Hide the progress bar
+    !!FMSYS.Setprogress(0)
+
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      showDetailsWT
+--
+-- Description: cette méthode affiche les détails du pipe dans la seconde grille pour les wall thickness
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .showDetailsWT()
+
+    -- gestion des unités
+	var !UNITS UNITS
+	if (MATCH(|$!UNITS|,|MM Bore|) neq 0) THEN
+		var !unittext |mm|
+	else
+		var !unittext |in|
+	endif
+
+	-- on active l'onglet "details"
+	!this.tableDetails.visible = true
+
+	!selrow = !this.grid.getselectedrowTags()[1]
+	!rownum = !this.grid.getcolumn(0).findfirst(!selrow)
+	!pipename = !this.grid.GetCell(!rownum, 1)
+
+    -- converti le pipename
+    !exp = !this.expression
+    var !newpipename $!exp
+
+	-- on définit les colonnes de la grille de detail
+
+	-- clear the grid
+	!this.selectionmode = 'BYCODE'
+	!this.gridDetails.cleargrid()
+	!this.selectionmode = 'BYUSER'
+	-- Create headings
+	!headings    = ARRAY()
+	!headings[1] = 'Name'
+	!headings[2] = 'Type'
+	!headings[3] = 'Owner'
+	!headings[4] = 'Status'
+	!headings[5] = 'Piping Specification'
+	!headings[6] = 'Current Spref'
+	!headings[7] = 'Target Spref'
+	!headings[8] = 'Current Hstu/Lstu'
+	!headings[9] = 'Target Hstu/Lstu'
+	!headings[10] = 'Error Message'
+	!data = object array()
+
+	-- on s'occupe du pipe lui même
+	!pipeobj = object DBREF(!pipename)
+	!b = array()
+	!b.append(!pipeobj.name)
+	!b.append(!pipeobj.type)
+	!b.append(!pipeobj.owner.name)
+	!b.append('')
+	!pspename = !pipeobj.pspe.name
+	!b.append(!pspename)
+	-- spref ne s'applique pas sur les lignes
+	!b.append('None Applicable')
+	!b.append('None Applicable')
+	!b.append('None Applicable')
+	!b.append('None Applicable')
+	-- error message
+	!b.append('')
+	!data.append(!b)
+
+	-- des branches
+	var !allbran collect all BRAN for $!pipename
+
+	!countbran = 0
+	do !bran values !allbran
+		!errormsg = ''
+		!countbran = !countbran + 1
+		-- on s'occupe de la branche d'abord
+		!branobj = object DBREF(!bran)
+		!b = array()
+		!b.append(!branobj.name)
+		!b.append(!branobj.type)
+		!b.append(!branobj.owner.name)
+		!b.append('')
+		!pspename = !branobj.pspe.name
+		!b.append(!pspename)
+		-- spref ne s'applique pas sur les branches
+		!b.append('None Applicable')
+		!b.append('None Applicable')
+		-- current hstu
+		if badref(!branobj.hstu) then
+			!hstuname = 'nulref'
+		else
+			!hstuname = !branobj.hstu.name
+		endif
+		!b.append(!hstuname)
+		-- target hstu
+		-- on regarde si le spco a pu être trouvé
+		!newhstu = !this.getnonegenericspco(!branobj.hstu,!newpipename)
+		if not !newhstu.before('#') eq 'Target not found' then 
+			!newhstuobj = object dbref(!newhstu)
+			!b.append(!newhstuobj.name)
+		else
+		    !b.append('')
+			!errormsg = 'HSTU [' + !newhstu.after('#').after('#') + ']'
+		endif
+		-- error message
+		!b.append(!errormsg)
+		!data.append(!b)
+
+		-- on s'occupe des membres de la branche
+		var !allmem collect all bran mem with type ne 'TUBI' for $!bran
+		do !mem values !allmem
+			!errormsg = ''
+			!memobj = object DBREF(!mem)
+			!b = array()
+			!b.append(!memobj.name)
+			!b.append(!memobj.type)
+			!b.append(!memobj.owner.name)
+			!b.append('')
+			!b.append('')
+			-- current spref
+			if badref(!memobj.spref) then
+				!sprefname = 'nulref'
+			else
+				!sprefname = !memobj.spref.name
+			endif
+			!b.append(!sprefname)
+			-- target spref
+			!newspref = !this.getnonegenericspco(!memobj.spref,!newpipename)
+			if not !newspref.before('#') eq 'Target not found' then 
+				!newsprefobj = object dbref(!newspref)
+				!b.append(!newsprefobj.name)
+			else
+				!b.append('Target not found')
+				!errormsg = 'SPRE [' + !newspref.after('#').after('#') + ']'
+			endif
+			-- current lstu
+			if badref(!memobj.lstu) then
+				!lstuname = 'nulref'
+			else
+				!lstuname = !memobj.lstu.name
+			endif
+			!b.append(!lstuname)
+			-- target lstu
+			!newlstu = !this.getnonegenericspco(!memobj.lstu,!newpipename)
+			if not !newlstu.before('#') eq 'Target not found' then 
+				!newlstuobj = object dbref(!newlstu)
+				!b.append(!newlstuobj.name)
+			else
+				!b.append('Target not found')
+				if not !errormsg eq '' then
+					!errormsg = !errormsg + '; LSTU [' + !newlstu.after('#').after('#') + ']'
+				else
+					!errormsg = 'LSTU [' + !newlstu.after('#').after('#') + ']'
+				endif
+			endif
+			-- error message
+			!b.append(!errormsg)
+		    !data.append(!b)
+		enddo
+
+    -- progress bar
+    !progress = !countbran / !allbran.size() * 100 * 0.05
+    !!FMSYS.Setprogress(!progress)
+
+    enddo
+
+	-- Bind data to grid
+	using namespace  'Aveva.Core.Presentation'
+	!nds = object NetDataSource('Grid Control Example', !headings, !data)
+	!this.gridDetails.BindToDataSource(!nds)
+
+	unenhance all
+	if !this.enhance.val eq TRUE then
+		enhance $!pipeobj col white
+	endif
+	-- affiche les status et les couleurs
+	!this.updateDetailsWT()
+
+	-- set grid properties
+	!this.gridDetails.AutoFitColumns()
+	!this.gridDetails.setAlternateRowColor('grey')
+
+	-- navigue sur le pipe
+	$!pipename
+
+	-- Hide the progress bar
+    !!FMSYS.Setprogress(0)
+	
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      updateDetailsWT
+--
+-- Description: cette méthode met à jour la grille "details" pour les wall thickness: couleurs et messages
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+
+define method .updateDetailsWT()
+	-- on reparcours la grille et on met status/couleur
+	!pixmap = !!pml.getpathname('exclamation-16.png')
+	!Rows = !this.gridDetails.GetRows()
+
+	-- set progressbar
+	!!FMSYS.Setprogress(0)
+	
+	!rownum = 0
+	do !row values !Rows
+		!rownum = !rownum + 1
+		!mem = object DBREF(!row[1])
+
+		-- on ne fait rien pour les PIPE
+		if not !mem.type eq 'PIPE' then
+			-- on va comparer les SPREF
+			if !this.gridDetails.getcell(!rownum, 6 ) ne !this.gridDetails.getcell(!rownum, 7 ) then
+				if !this.enhance.val eq TRUE then
+				  enhance $!mem col red
+				endif
+				!this.gridDetails.setCellColor(!rownum, 4 , 'salmon')
+				!this.gridDetails.setCellValue(!rownum,4, 'Failed')
+				!this.gridDetails.setCellImage(!rownum,4, !pixmap)
+				if not !this.gridDetails.getcell(!rownum, 10 ) eq '' then
+					!this.gridDetails.setcellvalue(!rownum, 10, !this.gridDetails.getcell(!rownum, 10 ) + '; SPRE[Source and target are different]')
+				else
+					!this.gridDetails.setcellvalue(!rownum, 10, 'SPRE[Source and target are different]')
+				endif
+				!this.gridDetails.setCellColor(!rownum, 10 , 'lightyellow')
+			else
+				!this.gridDetails.setCellColor(!rownum, 4 , 'lightgreen')
+				!this.gridDetails.setCellValue(!rownum,4, 'Passed')
+				if !this.enhance.val eq TRUE then
+					enhance $!mem col green
+				endif
+			endif
+			-- on refait une passe pour les HSTU/LSTU
+			if !this.gridDetails.getcell(!rownum, 8 ) ne !this.gridDetails.getcell(!rownum, 9 ) then
+				if !this.enhance.val eq TRUE then
+					var !leavetube ileave tube of $!mem
+					handle any
+					elsehandle none
+						enhance $!leavetube col red
+					endhandle
+				endif
+				!this.gridDetails.setCellColor(!rownum, 4 , 'salmon')
+				!this.gridDetails.setCellValue(!rownum,4, 'Failed')
+				!this.gridDetails.setCellImage(!rownum,4, !pixmap)
+				if !this.gridDetails.getcell(!rownum, 10 ) eq '' then
+					if !mem.type eq 'BRAN' then
+						!this.gridDetails.setcellvalue(!rownum, 10, 'HSTU[Source and target are different]')
+					else
+						!this.gridDetails.setcellvalue(!rownum, 10, 'LSTU[Source and target are different]')
+					endif
+				else
+					!this.gridDetails.setcellvalue(!rownum, 10, !this.gridDetails.getcell(!rownum, 10 ) + '; LSTU[Source and target are different]')
+				endif
+				!this.gridDetails.setCellColor(!rownum, 10 , 'lightyellow')
+			else
+				if not !this.gridDetails.getcell(!rownum, 4 ) eq 'Failed' then
+					!this.gridDetails.setCellColor(!rownum, 4 , 'lightgreen')
+					!this.gridDetails.setCellValue(!rownum,4, 'Passed')
+					!this.gridDetails.setCellImage(!rownum,4, '')
+				endif
+				if !this.enhance.val eq TRUE then
+					var !leavetube ileave tube of $!mem
+					handle any
+					elsehandle none
+						enhance $!leavetube col green
+					endhandle
+				endif
+			endif
+
+		endif
+
+		-- progress bar
+		!progress = !rownum / !rows.size() * 100 * 0.95 + 5
+		!!FMSYS.Setprogress(!progress)
+	enddo
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      changespref
+--
+-- Description: cette methode navigue sur l'objet dans la hierarchie et propose la form "Piping Component"
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .changespref()
+	!this.navigateToDetails()
+	-- show _CDCOMP
+	show !!componentEditor
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      getStype
+--
+-- Description: cette méthode retrouve le stype théorique à partir du fichier XML pour les tableaux de piguage
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .getStype(!spec is string, !headerbore is string , !branchbore is string) is STRING
+	-- récupère le noeud pipename dans le XML branch table
+	!specnode = !this.branchtablexmldoc.selectnodes(|//BranchTable[@value='| + !spec + |']|)
+	if not !specnode.size() gt 0 then
+		return ('Not found#Spec ' + !spec + ' not found in branch table file')
+	endif
+	-- récupère le noeud diametre collecteur
+	!diamheadernode = !specnode[1].selectnodes(|DiamHeader[@value='| + !headerbore + |']|)
+	if not !diamheadernode.size() gt 0 then
+		return ('Not found#Header diameter ' + !headerbore + ' not found in branch table file for spec ' + !spec)
+	endif
+	-- récupère le noeud diamètre sortie
+	!diamoutnode = !diamheadernode[1].selectnodes(|DiamBranch[@value='| + !branchbore + |']|)
+	if not !diamoutnode.size() gt 0 then
+		return ('Not found#Branch diameter ' + !branchbore + ' not found in branch table file for header diameter ' + !headerbore + ' for spec ' + !spec)
+	endif
+	-- renvoie le STYPE
+	return !diamoutnode[1].value('@stype')
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      getCalcStype
+--
+-- Description: cette méthode retrouve le stype théorique calculé à partir du fichier XML pour les tableaux de piguage calculés
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .getCalcStype( !headerbore is string , !branchbore is string, !pipename is string) is STRING
+
+	récupère le noeud pipename dans le XML branch table calculées
+	!  = !this.linelistcalcbtxmldoc.selectnodes(|//Pipe[@name='| + !pipename + |']|)
+	if not !pipenode.size() gt 0 then
+			return ('Calc not found#Pipe ' + !pipename + ' not found in calculated branch table file')
+	endif
+
+	-- récupère le noeud diametre collecteur
+	!diamheadernode = !pipenode[1].selectnodes(|DiamHeader[@value='| + !headerbore + |']|)
+	if not !diamheadernode.size() gt 0 then
+		return ('Calc not found#Header diameter ' + !headerbore + ' not found in calculated branch table file for pipe ' + !pipename)
+	endif
+
+	-- récupère le noeud diamètre sortie
+	!diamoutnode = !diamheadernode[1].selectnodes(|DiamBranch[@value='| + !branchbore + |']|)
+	if not !diamoutnode.size() gt 0 then
+		return ('Calc not found#Branch diameter ' + !branchbore + ' not found in calculated branch table file for header diameter ' + !headerbore + ' for pipe ' + !pipename)
+	endif
+	-- récupère le STYPE calculé
+	return !diamoutnode[1].value('@stype')
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      getnonegenericspco
+--
+-- Description: cette méthode retrouve le spco non générique
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .getnonegenericspco(!genspco is dbref,!pipename is string) is string
+
+	if badref(!genspco) then
+		return 'Target not found##Initial component not set'
+	endif
+
+	-- retrouve le sele pour le STYP
+	!own = 'own'
+	!i = 0
+	do
+		if ( ques of $!own of $!genspco ) eq 'STYP' then
+			var !sele $!own of $!genspco
+			break
+		else
+			!own = !own + ' of own'
+		endif
+	enddo
+
+	-- collecte les SPCO du sele GEN
+	var !spcos collect all spco for $!sele
+	-- trouve la position de la question GEN
+	var !choices CHOICE with $!genspco
+	!genpos = ( !choices.split().findfirst('GEN') + 1 ) / 2
+    
+	!stypgen = !genspco.stype.before('_')
+	-- trouve le générique et les épaisseurs
+	do !spco values !spcos
+		!spref = object dbref(!spco)
+		var !gen CHOICE with $!spco ANSWER $!genpos
+		if !gen eq 'TRUE' and !spref.stype.before('_') eq !stypgen then
+			-- c'est le générique
+			-- on regarde s'il s'agit d'un composant ou la reselection s'applique ou non
+			!tpcalc1 = !spref.:TP-CALC1
+			!tpcalc2 = !spref.:TP-CALC2
+			-- selon les valeurs de :TPCALC1 et :TPCALC2 on doit trouver :TPWTIN1 et :TPWTIN2 ( attention peut être à calculer )
+			if !tpcalc1 eq 'TRUE' then
+				!tpwtout1 = !this.getCalcWT(!spref.PPBORE[1].string(),!pipename)
+			elseif !tpcalc1 eq 'FALSE' then
+				!tpwtout1 = !spref.:TP-WTin1
+			elseif !tpcalc1 eq 'NA' then
+				!tpwtout1 = 'NA'
+			endif
+			
+			if !tpcalc2 eq 'TRUE' then
+				if !spref.catr.gtyp eq 'TEE' or !spref.catr.gtyp eq 'OLET' then
+					!tpwtout2 = !this.getCalcWT(!spref.PPBORE[3].string(),!pipename)
+				else
+					!tpwtout2 = !this.getCalcWT(!spref.PPBORE[2].string(),!pipename)
+				endif
+				
+			elseif !tpcalc2 eq 'FALSE' then
+				!tpwtout2 = !spref.:TP-WTin2
+			elseif !tpcalc2 eq 'NA' then
+				!tpwtout2 = 'NA'
+			endif
+
+			-- on sort
+			break
+		endif
+	enddo
+
+	-- on vérifie que les variables !tpwtout1 ou !tpwtout2 ont pu être calculées
+	if !tpwtout1.before('#') eq 'Calc not found' and !tpcalc1 eq 'TRUE' then
+		return ( 'Target not found#' + !tpwtout1 )
+	endif
+	if !tpwtout2.before('#') eq 'Calc not found' and !tpcalc2 eq 'TRUE' then
+		return ( 'Target not found#' + !tpwtout2 )
+	endif
+	
+	-- trouve le non générique avec la bonne épaisseur
+	var !spcos collect all spco with :TP-WTin1 eq '$!tpwtout1' and :TP-WTin2 eq '$!tpwtout2' for $!sele
+	-- on verifie que le tableau n'est pas vide
+	if !spcos.size() gt 0 then
+		do !spco values !spcos
+			!spref = object dbref(!spco)
+			var !gen CHOICE with $!spco ANSWER $!genpos
+			if not !gen eq 'TRUE' and !spref.stype.before('_') eq !stypgen then
+				!newspref = !spco
+				break
+			endif
+		enddo
+		if defined(!newspref) then
+			return !newspref
+		else
+			return 'Target not found##Target component not found in specification'
+		endif
+	else
+		return 'Target not found##Target component not found in specification'
+	endif
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      getCalcWT
+--
+-- Description: cette méthode retrouve le WT théorique calculé à partir du fichier XML pour les lignes calculées
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .getCalcWT( !bore is string , !pipename is string) is STRING
+	-- on gère les unités : MARIAN ne travaille qu'en INCH
+	var !UNITS UNITS
+	if (MATCH(|$!UNITS|,|MM Bore|) neq 0) THEN
+		-- le projet est en mm
+		!boreobj = object bore()
+		!boreobj.bore(!bore.before('mm').real())
+		!strbore = !boreobj.string(!this.inchformat)
+		!strbore = !strbore.replace('.50','.5').replace('.00','').replace('0.','.')
+	else
+		-- le projet est en inches
+		!strbore = !bore.replace('in','').replace('.50','.5').replace('.00','').replace('0.','.')
+	endif
+		
+	-- récupère le noeud pipename dans le XML des WT calculées
+	!pipenode = !this.linelistcalcwtxmldoc.selectnodes(|//Pipe[@name='| + !pipename + |']|)
+	if not !pipenode.size() gt 0 then
+		return ('Calc not found#Pipe ' + !pipename + ' not found in calculated wall thickness file')
+	endif
+	-- récupère le noeud diametre
+	!diam = !pipenode[1].selectnodes(|Nomdiam[@value='| + !strbore + |']|)
+	if not !diam.size() gt 0 then
+		return ('Calc not found#Diameter ' + !strbore + ' not found in calculated wall thickness file for pipe ' + !pipename)
+	endif
+	-- récupère le WT calculé
+	return !diam[1].value('@WT')
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      afterSelectChange
+--
+-- Description: cette méthode est appelée par le eventhanler lorsqu'une ligne est sélectionnée dans la grille
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .afterSelectChange(!a is ARRAY)
+	-- ne s'applique que si c'est une sélection USER
+	if not !this.selectionmode eq 'BYCODE' then
+		-- on navigue sur le pipe si la case 'auto navigate' est cochée
+		if !this.autonavigate.val eq TRUE then
+			!this.navigateTo()
+		endif
+		-- on nettoie la grille details
+		!this.selectionmode = 'BYCODE'
+		!this.gridDetails.cleargrid()
+		!this.selectionmode = 'BYUSER'
+		-- on grise le bouton 'sel from graphics' de la form details
+		!this.selfromgraphicsdet.active = false
+	endif
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      afterSelectChangeDetails
+--
+-- Description: cette méthode est appelée par le eventhanler lorsqu'une ligne est sélectionnée dans la grille de détail
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .afterSelectChangeDetails(!a is ARRAY)
+	-- ne s'applique que si c'est une sélection USER
+	if not !this.selectionmode eq 'BYCODE' then
+		-- on navigue sur le pipe si la case 'auto navigate' est cochée
+		if !this.autonavigatedet.val eq TRUE then
+			!this.navigateToDetails()
+		endif
+	endif
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      closecall
+--
+-- Description: cette methode est appelée lors de la fermeture de la forme
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .closecall()
+!!FMSYS.Setprogress(0)
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      rightClickGridDetails
+--
+-- Description: cette méthode est appelée par le eventhanler pour le "rightclickgriddetails"
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .rightClickGridDetails(!data is ARRAY)
+    -- on gère le menu 'spec search'
+  	-- récupère le n° de ligne réel dans la grille
+    !selrow = !this.griddetails.getselectedrowTags()[1]
+    !rownum = !this.griddetails.getcolumn(0).findfirst(!selrow)
+  	if !this.griddetails.GetCell(!rownum, 2) eq 'SCPLIN' or !this.griddetails.GetCell(!rownum, 2) eq 'SCBRAN' then
+		!this.gridPopupDetails.SetFieldProperty('specsearch' , 'ACTIVE' ,false)
+  	else
+		!this.gridPopupDetails.SetFieldProperty('specsearch' , 'ACTIVE' ,true)
+    endif
+    !this.gridFrameDetails.popup = !this.gridPopupDetails
+    !this.elements = !data[2]
+    !this.gridFrameDetails.showPopup(!data[0], !data[1])
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      rightClickGrid
+--
+-- Description: cette méthode est appelée par le eventhanler pour le "rightclickgrid"
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .rightClickGrid(!data is ARRAY)
+	-- on grise le menu navigatto ou non selon la sélection courante
+	!selectedRows = !this.grid.GetSelectedRows()
+	if !selectedRows.size() gt 1 then
+		!this.gridPopup.SetFieldProperty('navigateto' , 'ACTIVE' ,false)
+		!this.gridPopup.SetFieldProperty('showdetails' , 'ACTIVE' ,false)
+	else
+		!this.gridPopup.SetFieldProperty('navigateto' , 'ACTIVE' ,true)
+		-- on gère le menu show details
+		-- récupère le n° de ligne réel dans la grille
+		!selrow = !this.grid.getselectedrowTags()[1]
+		!rownum = !this.grid.getcolumn(0).findfirst(!selrow)
+		if not !this.grid.GetCell(!rownum, 4) eq '' then
+			!this.gridPopup.SetFieldProperty('showdetails' , 'ACTIVE' ,true)
+		else
+			!this.gridPopup.SetFieldProperty('showdetails' , 'ACTIVE' ,false)
+		endif
+	endif
+	!this.gridFrame.popup = !this.gridPopup
+	!this.elements = !data[2]
+	!this.gridFrame.showPopup(!data[0], !data[1])
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      saveToExcel
+--
+-- Description: cette méthode sauve la grille vers Excel
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .saveToExcel()
+	import 'PMLFileBrowser'
+	handle any
+	endhandle
+	-- on efface la sélection
+	!this.grid.clearRowSelection()
+	-- couleur alternative : blanc
+	!this.grid.setAlternateRowColor('white')
+	using namespace 'Aveva.Core.Presentation'
+	var !pdmuser evar 'PDMSUSER'
+	!browser = object PMLFileBrowser('SAVE')
+	if !this.workingmode eq 'BT' then
+		!filename = 'CheckBranchTable.xlsx'
+	else
+		!filename = 'WallThickness.xlsx'
+	endif
+	!browser.show(!pdmuser,!filename,'Save Grid to Excel',false, 'Excel Documents|*.xlsx',1)
+	!this.grid.SaveGridToExcel(!browser.file())
+	handle any
+	endhandle
+	-- couleur alternative : gris
+	!this.grid.setAlternateRowColor('grey')
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      savedetailsToExcel
+--
+-- Description: cette methode exporte la grille vers excel
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .savedetailsToExcel()
+	import 'PMLFileBrowser'
+	Handle Any
+	Endhandle
+	using namespace 'Aveva.Core.Presentation'
+	-- couleur alternative : blanc
+	!this.gridDetails.setAlternateRowColor('white')
+	var !pdmuser evar 'PDMSUSER'
+	!browser = object PMLFileBrowser('SAVE')
+	if !this.workingmode eq 'BT' then
+		!filename = 'CheckBranchTableDetails.xlsx'
+	else
+		!filename = 'WallThicknessDetails.xlsx'
+	endif
+	!browser.show(!pdmuser,!filename,'Save Grid to Excel',false, 'Excel Documents|*.xlsx',1)
+	!this.gridDetails.SaveGridToExcel(!browser.file())
+	handle any
+	endhandle
+	-- couleur alternative : gris
+	!this.gridDetails.setAlternateRowColor('grey')
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      tryupdate
+--
+-- Description: cette methode est appelée par le menu contextuel de la grille 'details' pour mettre à jour le composant à la demande
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .tryupdate(!hier is boolean)
+    !selectedRows = !this.gridDetails.GetSelectedRows()
+	if !selectedRows.size() gt 0 then
+		!ref = !selectedRows[1][1]
+		!refobj = object dbref(!ref)
+		!!tpchoosecalccomphier(!refobj,!hier)
+	endif
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      addpipe
+--
+-- Description: cette methode ajoute le pipe en cours à l'écran et zoom auto dessus ( option, add only ou non )
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .addpipe(!only is boolean)
+    -- on récupère le pipe
+	if !this.tableDetails.selected eq true then
+		-- appel depuis la grille details
+		!selectedRows = !this.gridDetails.GetSelectedRows()
+		!ref = !selectedRows[1][1]
+		handle any
+			return
+		endhandle
+		var !pipe PIPE of $!ref
+		if !only eq true then
+			-- l'utilisateur demande d'afficher le pipe seulement
+			if !!alert.confirm('This will remove all elements from the screen and add only the selected pipe. Do you confirm ?') eq 'YES' then
+				rem all
+				-- on ajoute le pipe et on zoom dessus
+				add $!pipe
+			else
+				return
+			endif
+		else
+			-- on ajoute le pipe et on zoom dessus
+			add $!pipe
+		endif
+	else
+		-- appel depuis la grille principale
+		if !only eq true then
+			-- l'utilisateur demande d'afficher le pipe seulement
+			if !!alert.confirm('This will remove all elements from the screen and add only the selected pipes. Do you confirm ?') eq 'YES' then
+				rem all
+				!selectedRows = !this.grid.GetSelectedRows()
+				do !selectedRow values !selectedRows
+				-- on ajoute le pipe et on zoom dessus
+				!pipe = !selectedRow[1]
+				add $!pipe
+				enddo
+			else
+				return
+			endif
+		else
+			!selectedRows = !this.grid.GetSelectedRows()
+			do !selectedRow values !selectedRows
+				-- on ajoute le pipe et on zoom dessus
+				!pipe = !selectedRow[1]
+				add $!pipe
+			enddo
+		endif
+	endif
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      updateRowsWT1
+--
+-- Description: obsolete
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .updateRowsWT1()
+	-- on passe en FORWARD pour assurer le coup
+	FOR
+	-- gestion du mode
+	!this.workingmode = 'WT'
+	-- gestion des unités
+	var !UNITS UNITS
+	if (MATCH(|$!UNITS|,|MM Bore|) neq 0) THEN
+		var !unittext |mm|
+	else
+		var !unittext |in|
+	endif
+	-- save ce
+	!oldce = !!ce
+	-- on efface le selection status
+	!this.selectionStatus.val = ''
+	!this.selectionStatus.visible = FALSE
+
+	!pixmap = !!pml.getpathname('exclamation-16.png')
+
+	 -- on efface les couleurs existantes
+	!this.unhighlightgrid()
+
+	-- gestion progressbar
+	!progressline = 0
+
+	-- compatge des erreurs
+	!totalerror = 0
+
+
+	!selectedRows = !this.grid.GetSelectedRows()
+
+	-- on boucle sur les lignes du tableau
+	!rownumori = 0
+	do !row values !selectedRows
+		!errornum = 0
+		!rownumori = !rownumori + 1
+		!pipe = object DBREF(!row[1])
+		!spec = !pipe.pspe.namn
+		!pipename = !pipe.name
+
+
+		-- converti le pipename
+		!exp = !this.expression
+		var !newpipename $!exp
+
+		-- collecte des Composants du pipe + HSTU BRANCH
+		var !pipemem collect all bran mem with type ne 'TUBI' for $!pipe
+		!memcount = 0
+		do !mem values !pipemem
+			!memcount = !memcount + 1
+			!memobj = object DBREF('$!mem')
+			!bore1 = !memobj.ppbore[1].string().before(!unittext)
+			!cc = !memobj.spre.:TP-COMMCODE
+
+			-- on supprime la variable newspref pour eviter les mauvaises surprises
+		    !newspref.delete()
+			handle any
+			endhandle
+
+			-- retrouve le sele pour le STYP
+			!curspco = !memobj.spre
+			!own = 'own'
+			!i = 0
+			do
+				if ( ques of $!own of $!curspco ) eq 'STYP' then
+					var !sele $!own of $!curspco
+					break
+				else
+					!own = !own + ' of own'
+				endif
+			enddo
+
+			-- trouve la position de la question GEN
+			var !choices CHOICE with $!curspco
+			!genpos = ( !choices.split().findfirst('GEN') + 1 ) / 2
+
+			-- nouvelle version
+			-- collecte les SPCO du sele GEN
+					var !spcos collect all spco for $!sele
+
+					-- trouve le générique
+					do !spco values !spcos
+						var !gen CHOICE with $!spco ANSWER $!genpos
+						if !gen eq 'TRUE' then
+							-- c'est le générique
+							!spref = object dbref(!spco)
+							-- on regarde s'il s'agit d'un composant ou la reselection s'applique ou non
+							!tpcalc1 = !spref.:TP-CALC1
+							!tpcalc2 = !spref.:TP-CALC2
+
+							if !tpcalc1 eq 'NA' then
+								-- il faut aller sélectionner le non générique ( un seul possible )
+							else
+
+							endif
+
+
+							-- trouve l'épaisseur ( attention peut être à calculer )
+							!tpcalc1 = !spref.:TP-CALC1
+							if !tpcalc1 eq 'TRUE' then
+								!tpwtout1 = !this.getCalcWT(!bore1,!newpipename).before('#')
+							else
+								!tpwtout1 = !spref.:TP-WTin1
+							endif
+							break
+						endif
+					enddo
+		    --
+
+			!donot = true
+
+			if !donot eq true then
+
+				-- nouvelle affectation du spref selon type d'objet
+				if !memobj.type eq 'ELBO' then
+
+					-- on est sur un elbo, on ne regarde que WT1
+					-- dans la spec ( sele pere ) on collecte tous les elements ayant même CC
+					-- collecte les SPCO du sele GEN
+					var !spcos collect all spco for $!sele
+
+					-- trouve le générique
+					do !spco values !spcos
+						var !gen CHOICE with $!spco ANSWER $!genpos
+						if !gen eq 'TRUE' then
+							!spref = object dbref(!spco)
+							-- trouve l'épaisseur ( attention peut être à calculer )
+							!tpcalc1 = !spref.:TP-CALC1
+							if !tpcalc1 eq 'TRUE' then
+								!tpwtout1 = !this.getCalcWT(!bore1,!newpipename).before('#')
+							else
+								!tpwtout1 = !spref.:TP-WTin1
+							endif
+							break
+						endif
+					enddo
+
+
+					-- trouve le non générique avec la bonne épaisseur
+					var !spcos collect all spco with :TP-WTin1 eq '$!tpwtout1' for $!sele
+
+					do !spco values !spcos
+						var !gen CHOICE with $!spco ANSWER $!genpos
+						--q var !gen
+						if not !gen eq 'TRUE' then
+							--en principe on a qu'un element ( si plusieurs on garde le premier )
+							!newspref = object dbref(!spco)
+							break
+						endif
+					enddo
+
+					-- change le spre
+					!memobj.spre = !newspref
+					handle any
+						$p le composant n'a pas pu etre remplacé '
+						!errornum = !errornum + 1
+					endhandle
+
+				elseif  !memobj.type eq 'REDU' then
+
+				elseif  !memobj.type eq 'TEE' or !memobj.type eq 'OLET' then
+
+					-- on est sur un tee, on regarde WT1 et WT2
+					-- dans la spec ( sele pere ) on collecte tous les elements ayant même CC
+					!bore2 = !memobj.ppbore[3].string().before(!unittext)
+					-- collecte les SPCO du sele GEN
+					var !spcos collect all spco for $!sele
+
+					-- trouve le générique
+					do !spco values !spcos
+						var !gen CHOICE with $!spco ANSWER $!genpos
+						if !gen eq 'TRUE' then
+							!spref = object dbref(!spco)
+							-- trouve l'épaisseur 1 ( attention peut être à calculer )
+							!tpcalc1 = !spref.:TP-CALC1
+							if !tpcalc1 eq 'TRUE' then
+								!tpwtout1 = !this.getCalcWT(!bore1,!newpipename).before('#')
+							else
+							  !tpwtout1 = !spref.:TP-WTin1
+							endif
+							-- trouve l'épaisseur 2 ( attention peut être à calculer )
+							!tpcalc2 = !spref.:TP-CALC2
+							if !tpcalc2 eq 'TRUE' then
+								!tpwtout2 = !this.getCalcWT(!bore2,!newpipename).before('#')
+							else
+								!tpwtout2 = !spref.:TP-WTin2
+							endif
+							break
+						endif
+					enddo
+
+
+					-- trouve le non générique avec la bonne épaisseur
+					--q var !memobj.ref.string()
+					var !spcos collect all spco with :TP-WTin1 eq '$!tpwtout1' and :TP-WTin2 eq '$!tpwtout2' for $!sele
+
+					do !spco values !spcos
+						var !gen CHOICE with $!spco ANSWER $!genpos
+						--q var !gen
+						if not !gen eq 'TRUE' then
+							--en principe on a qu'un element ( si plusieurs on garde le premier )
+							!newspref = object dbref(!spco)
+							break
+						endif
+					enddo
+
+					-- change le spre
+					!memobj.spre = !newspref
+					handle any
+						$p le composant n'a pas pu etre remplacé '
+						!errornum = !errornum + 1
+					endhandle
+
+
+				-- ... gérer les autres types
+
+				endif
+
+				-- dans tous les cas on change le lstu du composant
+				!this.updateWTlstu(!memobj)
+
+			endif
+
+			-- on affiche un progress intermédiaire comme c'est une opération plus longue
+			!progress = 10 + !progressline + ( ( 1 / !selectedRows.size() * 0.8 ) * !memcount / !pipemem.size()  ) * 100
+			!!FMSYS.Setprogress(!progress)
+
+		enddo
+
+		-- récupère le n° de ligne réel dans la grille
+		!selrow = !this.grid.getselectedrowTags()[!rownumori]
+		!rownum = !this.grid.getcolumn(0).findfirst(!selrow)
+
+		-- on affiche la couleur
+		if !errornum eq 0 then
+			-- vert/cyan
+			!this.grid.setCellValue(!rownum,4, 'Passed')
+			!this.grid.setCellColor(!rownum, 4 , 'lightgreen')
+			!this.grid.setCellImage(!rownum,4, '')
+			!tooltip = 'All components wall thickness was redefined for pipe ' + !pipe.name
+		else
+			!totalerror = !totalerror + 1
+			-- rouge
+			!this.grid.setCellValue(!rownum,4, 'Failed')
+			!this.grid.setCellColor(!rownum, 4 , 'salmon')
+			!this.grid.setCellImage(!rownum,4, !pixmap)
+			!tooltip = 'Not components wall thickness was redefined for pipe ' + !pipe.name
+		endif
+
+		-- on set le tooltip de la ligne
+		!this.grid.setRowTooltip(!rownum, !tooltip)
+
+	    -- gestion progressbar
+	    !progressline = !rownumori / !selectedRows.size() * 100 * 0.8
+	    !progress = 10 + !progressline
+	    !!FMSYS.Setprogress(!progress)
+	enddo
+
+	!this.grid.AutoFitColumns()
+
+	-- restore ce
+	$!oldce
+
+	-- on efface la sélection
+	!this.grid.clearRowSelection()
+
+	-- set progressbar
+	!!FMSYS.Setprogress(100)
+
+	-- on met à jour le sélection status
+	!successnum = !rownumori - !totalerror
+	!this.selectionStatus.visible = true
+
+	!this.selectionStatus.val = 'Applied successfully to :   $!successnum                     Fails to apply to             :   $!totalerror                           Total Selection               :   $!rownumori '
+	if !totalerror gt 0 then
+		!this.selectionStatus.background = 3
+	else
+		!this.selectionStatus.background = 5
+	endif
+
+endmethod
+
+------------------------------------------------------------------------
+--
+-- Method:      updateWTlstu
+--
+-- Description: obsolete
+--
+-- Method Type: Procedure
+--   [#] [R/RW] [Data Type] [Description]
+-- Return:
+--   [Data Type] [Description]
+--
+------------------------------------------------------------------------
+define method .updateWTlstu(!memobj is dbref)
+	-- gestion des unités
+	var !UNITS UNITS
+	if (MATCH(|$!UNITS|,|MM Bore|) neq 0) THEN
+		var !unittext |mm|
+	else
+		var !unittext |in|
+	endif
+
+	!lstuobj = !memobj.lstu
+	--q var !memobj.ref.string()
+	!bore1 = !lstuobj.ppbore[1].string().before(!unittext)
+	!cc = !lstuobj.:TP-COMMCODE
+
+	-- retrouve le sele pour le STYP
+	!curspco = !memobj.spre
+	!own = 'own'
+	!i = 0
+	do
+		if ( ques of $!own of $!lstuobj ) eq 'STYP' then
+			var !sele $!own of $!lstuobj
+			break
+		else
+			!own = !own + ' of own'
+		endif
+	enddo
+
+	-- trouve la position de la question GEN
+	var !choices CHOICE with $!lstuobj
+	!genpos = ( !choices.split().findfirst('GEN') + 1 ) / 2
+
+	-- collecte les SPCO du sele GEN
+	var !spcos collect all spco for $!sele
+
+	-- trouve le générique
+	do !spco values !spcos
+		var !gen CHOICE with $!spco ANSWER $!genpos
+		if !gen eq 'TRUE' then
+			!spref = object dbref(!spco)
+			-- trouve l'épaisseur ( attention peut être à calculer )
+			!tpcalc1 = !spref.:TP-CALC1
+			if !tpcalc1 eq 'TRUE' then
+				!tpwtout1 = !this.getCalcWT(!bore1,!newpipename).before('#')
+			else
+			  !tpwtout1 = !spref.:TP-WTin1
+			endif
+			break
+		endif
+	enddo
+
+	-- trouve le non générique avec la bonne épaisseur
+	var !spcos collect all spco with :TP-WTin1 eq '$!tpwtout1' for $!sele
+
+	do !spco values !spcos
+		var !gen CHOICE with $!spco ANSWER $!genpos
+		if not !gen eq 'TRUE' then
+			--en principe on a qu'un element ( si plusieurs on garde le premier )
+			!newspref = object dbref(!spco)
+			break
+		endif
+	enddo
+
+	-- on change le spref du lstu
+	!memobj.lstu = !newspref
+
+endmethod
+
+
+

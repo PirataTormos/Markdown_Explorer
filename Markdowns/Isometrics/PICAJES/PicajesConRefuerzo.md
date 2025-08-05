@@ -1,0 +1,1 @@
+para asegurar: al picaje con refuerzo se le asigna un skey que  hace que nunca aparezca en el isometrico, indicandose en la zona de dibujo. (criterio de isodraft)
