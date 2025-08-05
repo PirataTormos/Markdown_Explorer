@@ -5,8 +5,6 @@ import { FileText, Calendar, HardDrive, Loader2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useMarkdownStore } from "@/lib/store"
-import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
 
 interface FileContent {
   content: string
@@ -15,20 +13,73 @@ interface FileContent {
   modified: string
 }
 
-// Simple code block component
-function CodeBlock({ children, className, ...props }: any) {
-  const language = className?.replace("language-", "") || "text"
+// Componente simple para renderizar Markdown sin dependencias externas
+function SimpleMarkdownRenderer({ content }: { content: string }) {
+  const renderMarkdown = (text: string) => {
+    // Convertir headers
+    text = text.replace(/^### (.*$)/gim, '<h3 class="text-xl font-semibold mt-5 mb-2">$1</h3>')
+    text = text.replace(/^## (.*$)/gim, '<h2 class="text-2xl font-semibold mt-6 mb-3">$1</h2>')
+    text = text.replace(/^# (.*$)/gim, '<h1 class="text-3xl font-bold mt-8 mb-4 pb-2 border-b border-border">$1</h1>')
 
-  return (
-    <div className="relative">
-      <div className="absolute top-2 right-2 text-xs text-muted-foreground bg-muted px-2 py-1 rounded">{language}</div>
-      <pre className="bg-muted p-4 rounded-lg overflow-x-auto border">
-        <code className="text-sm font-mono" {...props}>
-          {children}
-        </code>
-      </pre>
-    </div>
-  )
+    // Convertir código en línea
+    text = text.replace(/`([^`]+)`/g, '<code class="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">$1</code>')
+
+    // Convertir bloques de código
+    text = text.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
+      const language = lang || "text"
+      return `<div class="relative my-4">
+        <div class="absolute top-2 right-2 text-xs text-muted-foreground bg-muted px-2 py-1 rounded">${language}</div>
+        <pre class="bg-muted p-4 rounded-lg overflow-x-auto border">
+          <code class="text-sm font-mono">${code.trim()}</code>
+        </pre>
+      </div>`
+    })
+
+    // Convertir enlaces
+    text = text.replace(
+      /\[([^\]]+)\]$$([^)]+)$$/g,
+      '<a href="$2" class="text-primary hover:text-primary/80 underline underline-offset-2 hover:underline-offset-4 transition-all" target="_blank" rel="noopener noreferrer">$1</a>',
+    )
+
+    // Convertir texto en negrita
+    text = text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+    text = text.replace(/__(.*?)__/g, "<strong>$1</strong>")
+
+    // Convertir texto en cursiva
+    text = text.replace(/\*(.*?)\*/g, "<em>$1</em>")
+    text = text.replace(/_(.*?)_/g, "<em>$1</em>")
+
+    // Convertir listas
+    text = text.replace(/^- (.*$)/gim, '<li class="text-foreground">$1</li>')
+    text = text.replace(/^\* (.*$)/gim, '<li class="text-foreground">$1</li>')
+    text = text.replace(/^\+ (.*$)/gim, '<li class="text-foreground">$1</li>')
+
+    // Envolver listas en ul
+    text = text.replace(
+      /(<li class="text-foreground">.*<\/li>)/gs,
+      '<ul class="list-disc list-inside space-y-1 my-4">$1</ul>',
+    )
+
+    // Convertir listas numeradas
+    text = text.replace(/^\d+\. (.*$)/gim, '<li class="text-foreground">$1</li>')
+
+    // Convertir blockquotes
+    text = text.replace(
+      /^> (.*$)/gim,
+      '<blockquote class="border-l-4 border-primary/20 pl-4 py-2 my-4 italic text-muted-foreground bg-muted/30 rounded-r">$1</blockquote>',
+    )
+
+    // Convertir líneas horizontales
+    text = text.replace(/^---$/gim, '<hr class="border-border my-8" />')
+
+    // Convertir saltos de línea
+    text = text.replace(/\n\n/g, '</p><p class="mb-4">')
+    text = text.replace(/\n/g, "<br />")
+
+    return `<div class="prose prose-gray dark:prose-invert max-w-none"><p class="mb-4">${text}</p></div>`
+  }
+
+  return <div className="markdown-content" dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }} />
 }
 
 export function MarkdownViewer() {
@@ -147,131 +198,7 @@ export function MarkdownViewer() {
       {/* Markdown Content */}
       <Card>
         <CardContent className="p-6">
-          <div className="prose prose-gray dark:prose-invert max-w-none">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                code({ node, inline, className, children, ...props }) {
-                  return !inline ? (
-                    <CodeBlock className={className} {...props}>
-                      {String(children).replace(/\n$/, "")}
-                    </CodeBlock>
-                  ) : (
-                    <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
-                      {children}
-                    </code>
-                  )
-                },
-                img({ src, alt, ...props }) {
-                  // Handle relative image paths
-                  const imageSrc = src?.startsWith("/")
-                    ? src
-                    : `/api/content?path=${encodeURIComponent(content.path.replace(/[^/]+$/, "") + src)}`
-                  return (
-                    <img
-                      src={imageSrc || "/placeholder.svg"}
-                      alt={alt}
-                      className="max-w-full h-auto rounded-lg shadow-sm"
-                      {...props}
-                    />
-                  )
-                },
-                table({ children, ...props }) {
-                  return (
-                    <div className="overflow-x-auto my-4">
-                      <table className="min-w-full border-collapse border border-border rounded-lg" {...props}>
-                        {children}
-                      </table>
-                    </div>
-                  )
-                },
-                th({ children, ...props }) {
-                  return (
-                    <th className="border border-border px-4 py-2 bg-muted font-semibold text-left" {...props}>
-                      {children}
-                    </th>
-                  )
-                },
-                td({ children, ...props }) {
-                  return (
-                    <td className="border border-border px-4 py-2" {...props}>
-                      {children}
-                    </td>
-                  )
-                },
-                blockquote({ children, ...props }) {
-                  return (
-                    <blockquote
-                      className="border-l-4 border-primary/20 pl-4 py-2 my-4 italic text-muted-foreground bg-muted/30 rounded-r"
-                      {...props}
-                    >
-                      {children}
-                    </blockquote>
-                  )
-                },
-                h1({ children, ...props }) {
-                  return (
-                    <h1 className="text-3xl font-bold mt-8 mb-4 pb-2 border-b border-border" {...props}>
-                      {children}
-                    </h1>
-                  )
-                },
-                h2({ children, ...props }) {
-                  return (
-                    <h2 className="text-2xl font-semibold mt-6 mb-3" {...props}>
-                      {children}
-                    </h2>
-                  )
-                },
-                h3({ children, ...props }) {
-                  return (
-                    <h3 className="text-xl font-semibold mt-5 mb-2" {...props}>
-                      {children}
-                    </h3>
-                  )
-                },
-                ul({ children, ...props }) {
-                  return (
-                    <ul className="list-disc list-inside space-y-1 my-4" {...props}>
-                      {children}
-                    </ul>
-                  )
-                },
-                ol({ children, ...props }) {
-                  return (
-                    <ol className="list-decimal list-inside space-y-1 my-4" {...props}>
-                      {children}
-                    </ol>
-                  )
-                },
-                li({ children, ...props }) {
-                  return (
-                    <li className="text-foreground" {...props}>
-                      {children}
-                    </li>
-                  )
-                },
-                a({ children, href, ...props }) {
-                  return (
-                    <a
-                      href={href}
-                      className="text-primary hover:text-primary/80 underline underline-offset-2 hover:underline-offset-4 transition-all"
-                      target={href?.startsWith("http") ? "_blank" : undefined}
-                      rel={href?.startsWith("http") ? "noopener noreferrer" : undefined}
-                      {...props}
-                    >
-                      {children}
-                    </a>
-                  )
-                },
-                hr({ ...props }) {
-                  return <hr className="border-border my-8" {...props} />
-                },
-              }}
-            >
-              {content.content}
-            </ReactMarkdown>
-          </div>
+          <SimpleMarkdownRenderer content={content.content} />
         </CardContent>
       </Card>
     </div>
