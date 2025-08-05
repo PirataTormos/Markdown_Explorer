@@ -19,6 +19,9 @@ interface FileContent {
 
 // Componente personalizado para imágenes
 const ImageComponent = ({ src, alt, filePath }: { src?: string; alt?: string; filePath: string }) => {
+  const [imageError, setImageError] = React.useState(false)
+  const [imageLoading, setImageLoading] = React.useState(true)
+
   if (!src) return null
 
   // Si la imagen es una ruta relativa, construir la ruta completa
@@ -29,14 +32,42 @@ const ImageComponent = ({ src, alt, filePath }: { src?: string; alt?: string; fi
     imageSrc = fileDir ? `${fileDir}/${src}` : src
   }
 
+  const imageUrl = `/api/image?path=${encodeURIComponent(imageSrc)}`
+
+  if (imageError) {
+    return (
+      <div className="my-6 text-center p-4 border border-dashed border-border rounded-lg">
+        <div className="text-muted-foreground">
+          <FileText className="h-8 w-8 mx-auto mb-2" />
+          <p className="text-sm">Image not found: {src}</p>
+          {alt && <p className="text-xs mt-1 italic">{alt}</p>}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="my-6 text-center">
+      {imageLoading && (
+        <div className="flex items-center justify-center p-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
       <img
-        src={`/api/image?path=${encodeURIComponent(imageSrc)}`}
+        src={imageUrl || "/placeholder.svg"}
         alt={alt || ""}
-        className="max-w-full h-auto rounded-lg shadow-lg mx-auto border border-border/20"
+        className={`max-w-full h-auto rounded-lg shadow-lg mx-auto border border-border/20 ${
+          imageLoading ? "hidden" : "block"
+        }`}
+        onLoad={() => setImageLoading(false)}
+        onError={() => {
+          setImageError(true)
+          setImageLoading(false)
+        }}
       />
-      {alt && <p className="text-sm text-muted-foreground mt-3 italic font-medium">{alt}</p>}
+      {alt && !imageError && !imageLoading && (
+        <p className="text-sm text-muted-foreground mt-3 italic font-medium">{alt}</p>
+      )}
     </div>
   )
 }
