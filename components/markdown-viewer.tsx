@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { FileText, Calendar, HardDrive, Loader2 } from "lucide-react"
+import { FileText, Calendar, HardDrive, Loader2, ImageIcon } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useMarkdownStore } from "@/lib/store"
@@ -22,12 +22,36 @@ const ImageComponent = ({ src, alt, filePath }: { src?: string; alt?: string; fi
   const [imageError, setImageError] = React.useState(false)
   const [imageLoading, setImageLoading] = React.useState(true)
 
-  if (!src) return null
+  if (!src) {
+    return (
+      <div className="my-6 text-center p-4 border border-dashed border-border rounded-lg">
+        <div className="text-muted-foreground">
+          <ImageIcon className="h-8 w-8 mx-auto mb-2" />
+          <p className="text-sm">No image source provided</p>
+        </div>
+      </div>
+    )
+  }
 
-  // Si la imagen es una ruta relativa, construir la ruta completa
+  // Skip external URLs - just display them normally
+  if (src.startsWith("http://") || src.startsWith("https://")) {
+    return (
+      <div className="my-6 text-center">
+        <img
+          src={src || "/placeholder.svg"}
+          alt={alt || ""}
+          className="max-w-full h-auto rounded-lg shadow-lg mx-auto border border-border/20"
+          onError={() => setImageError(true)}
+        />
+        {alt && <p className="text-sm text-muted-foreground mt-3 italic font-medium">{alt}</p>}
+      </div>
+    )
+  }
+
+  // Handle relative paths
   let imageSrc = src
-  if (!src.startsWith("http") && !src.startsWith("/")) {
-    // Obtener el directorio del archivo actual
+  if (!src.startsWith("/")) {
+    // Get the directory of the current file
     const fileDir = filePath.substring(0, filePath.lastIndexOf("/"))
     imageSrc = fileDir ? `${fileDir}/${src}` : src
   }
@@ -38,7 +62,7 @@ const ImageComponent = ({ src, alt, filePath }: { src?: string; alt?: string; fi
     return (
       <div className="my-6 text-center p-4 border border-dashed border-border rounded-lg">
         <div className="text-muted-foreground">
-          <FileText className="h-8 w-8 mx-auto mb-2" />
+          <ImageIcon className="h-8 w-8 mx-auto mb-2" />
           <p className="text-sm">Image not found: {src}</p>
           {alt && <p className="text-xs mt-1 italic">{alt}</p>}
         </div>
@@ -49,8 +73,11 @@ const ImageComponent = ({ src, alt, filePath }: { src?: string; alt?: string; fi
   return (
     <div className="my-6 text-center">
       {imageLoading && (
-        <div className="flex items-center justify-center p-8">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <div className="flex items-center justify-center p-8 border border-dashed border-border rounded-lg">
+          <div className="text-center">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">Loading image...</p>
+          </div>
         </div>
       )}
       <img
