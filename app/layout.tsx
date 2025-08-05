@@ -14,7 +14,7 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Markdown Explorer",
   description: "Explore and read Markdown documents with modern interface",
-    generator: 'v0.dev'
+  generator: "v0.dev",
 }
 
 export default function RootLayout({
@@ -32,7 +32,7 @@ export default function RootLayout({
               <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
                 <SidebarTrigger className="-ml-1" />
                 <Separator orientation="vertical" className="mr-2 h-4" />
-                <h1 className="text-lg font-semibold">Markdown Explorer</h1>
+                <h1 className="text-lg font-semibold">FRIK-E3D</h1>
                 <div className="ml-auto">
                   <ModeToggle />
                 </div>
