@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Search, FileText, Folder, FolderOpen, Loader2 } from "lucide-react"
+import { Search, FileText, Folder, FolderOpen, Loader2, RefreshCw, AlertCircle } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -36,6 +36,7 @@ interface SearchResult {
 export function AppSidebar() {
   const [files, setFiles] = React.useState<FileNode[]>([])
   const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
   const [searchQuery, setSearchQuery] = React.useState("")
   const [searchResults, setSearchResults] = React.useState<SearchResult[]>([])
   const [searching, setSearching] = React.useState(false)
@@ -62,14 +63,30 @@ export function AppSidebar() {
   const loadFiles = async () => {
     try {
       setLoading(true)
+      setError(null)
+
+      console.log("Loading files from API...")
+
       const response = await fetch("/api/files")
+      console.log("Response status:", response.status)
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
       const data = await response.json()
+      console.log("API Response:", data)
 
       if (data.success) {
         setFiles(data.data)
+        console.log("Files loaded successfully:", data.data.length, "items")
+      } else {
+        setError(data.error || "Failed to load files")
+        console.error("API returned error:", data.error)
       }
     } catch (error) {
       console.error("Error loading files:", error)
+      setError(error instanceof Error ? error.message : "Failed to load files")
     } finally {
       setLoading(false)
     }
@@ -79,19 +96,29 @@ export function AppSidebar() {
     try {
       setSearching(true)
       const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`)
+
+      if (!response.ok) {
+        throw new Error(`Search failed: ${response.status}`)
+      }
+
       const data = await response.json()
 
       if (data.success) {
         setSearchResults(data.data)
+      } else {
+        console.error("Search error:", data.error)
+        setSearchResults([])
       }
     } catch (error) {
       console.error("Error searching:", error)
+      setSearchResults([])
     } finally {
       setSearching(false)
     }
   }
 
   const handleFileSelect = (filePath: string) => {
+    console.log("File selected:", filePath)
     setCurrentFile(filePath)
   }
 
@@ -106,6 +133,10 @@ export function AppSidebar() {
   }
 
   const renderFileTree = (nodes: FileNode[], level = 0) => {
+    if (!nodes || nodes.length === 0) {
+      return <div className="p-4 text-sm text-muted-foreground text-center">No files found</div>
+    }
+
     return nodes.map((node) => {
       if (node.type === "directory") {
         const isExpanded = expandedFolders.has(node.path)
@@ -178,13 +209,36 @@ export function AppSidebar() {
           />
           {searching && <Loader2 className="h-4 w-4 animate-spin" />}
         </div>
-        <Button onClick={loadFiles} variant="outline" size="sm" className="w-full bg-transparent">
-          Refresh Files
+        <Button onClick={loadFiles} variant="outline" size="sm" className="w-full bg-transparent" disabled={loading}>
+          {loading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              Loading...
+            </>
+          ) : (
+            <>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh Files
+            </>
+          )}
         </Button>
       </SidebarHeader>
 
       <SidebarContent>
-        {searchQuery.trim().length >= 2 ? (
+        {error ? (
+          <SidebarGroup>
+            <SidebarGroupLabel>Error</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <div className="p-4 text-center">
+                <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-2" />
+                <p className="text-sm text-red-600 mb-3">{error}</p>
+                <Button onClick={loadFiles} size="sm" variant="outline">
+                  Try Again
+                </Button>
+              </div>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : searchQuery.trim().length >= 2 ? (
           <SidebarGroup>
             <SidebarGroupLabel>Search Results</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -196,9 +250,11 @@ export function AppSidebar() {
             <SidebarGroupLabel>Files</SidebarGroupLabel>
             <SidebarGroupContent>
               {loading ? (
-                <div className="flex items-center justify-center p-4">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="ml-2 text-sm">Loading files...</span>
+                <div className="flex items-center justify-center p-8">
+                  <div className="text-center">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                    <span className="text-sm text-muted-foreground">Loading files...</span>
+                  </div>
                 </div>
               ) : (
                 <SidebarMenu>{renderFileTree(files)}</SidebarMenu>

@@ -12,12 +12,23 @@ interface FileNode {
 
 function getFileStructure(dirPath: string, basePath = ""): FileNode[] {
   try {
+    console.log(`Reading directory: ${dirPath}`)
+
+    if (!fs.existsSync(dirPath)) {
+      console.log(`Directory does not exist: ${dirPath}`)
+      return []
+    }
+
     const items = fs.readdirSync(dirPath, { withFileTypes: true })
+    console.log(`Found ${items.length} items in ${dirPath}`)
+
     const result: FileNode[] = []
 
     for (const item of items) {
       const fullPath = path.join(dirPath, item.name)
-      const relativePath = path.join(basePath, item.name)
+      const relativePath = path.join(basePath, item.name).replace(/\\/g, "/") // Normalize path separators
+
+      console.log(`Processing: ${item.name} (${item.isDirectory() ? "directory" : "file"})`)
 
       if (item.isDirectory()) {
         const children = getFileStructure(fullPath, relativePath)
@@ -29,6 +40,9 @@ function getFileStructure(dirPath: string, basePath = ""): FileNode[] {
             type: "directory",
             children,
           })
+          console.log(`Added directory: ${item.name} with ${children.length} children`)
+        } else {
+          console.log(`Skipped empty directory: ${item.name}`)
         }
       } else if (item.isFile()) {
         const extension = path.extname(item.name).toLowerCase()
@@ -39,28 +53,37 @@ function getFileStructure(dirPath: string, basePath = ""): FileNode[] {
             type: "file",
             extension,
           })
+          console.log(`Added file: ${item.name}`)
+        } else {
+          console.log(`Skipped file with unsupported extension: ${item.name}`)
         }
       }
     }
 
-    return result.sort((a, b) => {
+    const sorted = result.sort((a, b) => {
       if (a.type !== b.type) {
         return a.type === "directory" ? -1 : 1
       }
       return a.name.localeCompare(b.name)
     })
+
+    console.log(`Returning ${sorted.length} items from ${dirPath}`)
+    return sorted
   } catch (error) {
-    console.error("Error reading directory:", error)
+    console.error(`Error reading directory ${dirPath}:`, error)
     return []
   }
 }
 
 export async function GET(request: NextRequest) {
   try {
+    console.log("Files API called")
     const markdownsPath = path.join(process.cwd(), "Markdowns")
+    console.log(`Markdowns path: ${markdownsPath}`)
 
     // Create Markdowns directory if it doesn't exist
     if (!fs.existsSync(markdownsPath)) {
+      console.log("Creating Markdowns directory...")
       fs.mkdirSync(markdownsPath, { recursive: true })
 
       // Create sample files
@@ -76,6 +99,14 @@ This is a sample Markdown file to demonstrate the functionality.
 - 🔍 **Search**: Find files quickly
 - 📝 **Markdown Rendering**: Beautiful rendering of Markdown content
 
+## Code Example
+
+\`\`\`javascript
+function hello() {
+  console.log("Hello, World!");
+}
+\`\`\`
+
 ## Getting Started
 
 1. Place your Markdown files in the \`Markdowns\` directory
@@ -85,24 +116,25 @@ This is a sample Markdown file to demonstrate the functionality.
 Enjoy exploring your Markdown documents!
 `
 
+      console.log("Creating sample README.md...")
       fs.writeFileSync(path.join(markdownsPath, "README.md"), sampleContent)
 
       // Create sample folder structure
       const sampleDir = path.join(markdownsPath, "Examples")
+      console.log("Creating Examples directory...")
       fs.mkdirSync(sampleDir, { recursive: true })
 
-      fs.writeFileSync(
-        path.join(sampleDir, "example.md"),
-        `# Example Document
+      const exampleContent = `# Example Document
 
 This is an example document in a subfolder.
 
 ## Code Example
 
-\`\`\`javascript
-function hello() {
-  console.log("Hello, World!");
-}
+\`\`\`python
+def greet(name):
+    print(f"Hello, {name}!")
+
+greet("World")
 \`\`\`
 
 ## List Example
@@ -110,18 +142,35 @@ function hello() {
 - Item 1
 - Item 2
 - Item 3
-`,
-      )
+
+## Table Example
+
+| Name | Age | City |
+|------|-----|------|
+| John | 25  | NYC  |
+| Jane | 30  | LA   |
+`
+
+      console.log("Creating example.md...")
+      fs.writeFileSync(path.join(sampleDir, "example.md"), exampleContent)
     }
 
+    console.log("Getting file structure...")
     const fileStructure = getFileStructure(markdownsPath)
+    console.log(`File structure complete. Found ${fileStructure.length} top-level items`)
 
     return NextResponse.json({
       success: true,
       data: fileStructure,
     })
   } catch (error) {
-    console.error("API Error:", error)
-    return NextResponse.json({ success: false, error: "Failed to read file structure" }, { status: 500 })
+    console.error("Files API Error:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: `Failed to read file structure: ${error instanceof Error ? error.message : "Unknown error"}`,
+      },
+      { status: 500 },
+    )
   }
 }
