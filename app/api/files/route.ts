@@ -21,12 +21,15 @@ function getFileStructure(dirPath: string, basePath = ""): FileNode[] {
 
       if (item.isDirectory()) {
         const children = getFileStructure(fullPath, relativePath)
-        result.push({
-          name: item.name,
-          path: relativePath,
-          type: "directory",
-          children,
-        })
+        // Solo incluir la carpeta si tiene archivos .md (directa o indirectamente)
+        if (children.length > 0) {
+          result.push({
+            name: item.name,
+            path: relativePath,
+            type: "directory",
+            children,
+          })
+        }
       } else if (item.isFile()) {
         const extension = path.extname(item.name).toLowerCase()
         if ([".md", ".txt", ".mdx"].includes(extension)) {

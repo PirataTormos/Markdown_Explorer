@@ -14,12 +14,28 @@ interface FileContent {
 }
 
 // Componente simple para renderizar Markdown sin dependencias externas
-function SimpleMarkdownRenderer({ content }: { content: string }) {
+function SimpleMarkdownRenderer({ content, filePath }: { content: string; filePath: string }) {
   const renderMarkdown = (text: string) => {
     // Convertir headers
     text = text.replace(/^### (.*$)/gim, '<h3 class="text-xl font-semibold mt-5 mb-2">$1</h3>')
     text = text.replace(/^## (.*$)/gim, '<h2 class="text-2xl font-semibold mt-6 mb-3">$1</h2>')
     text = text.replace(/^# (.*$)/gim, '<h1 class="text-3xl font-bold mt-8 mb-4 pb-2 border-b border-border">$1</h1>')
+
+    // Convertir imágenes (antes que los enlaces)
+    text = text.replace(/!\[([^\]]*)\]$$([^)]+)$$/g, (match, alt, src) => {
+      // Si la imagen es una ruta relativa, construir la ruta completa
+      let imageSrc = src
+      if (!src.startsWith("http") && !src.startsWith("/")) {
+        // Obtener el directorio del archivo actual
+        const fileDir = filePath.substring(0, filePath.lastIndexOf("/"))
+        imageSrc = fileDir ? `/${fileDir}/${src}` : `/${src}`
+      }
+
+      return `<div class="my-6 text-center">
+        <img src="/api/image?path=${encodeURIComponent(imageSrc)}" alt="${alt}" class="max-w-full h-auto rounded-lg shadow-sm mx-auto" />
+        ${alt ? `<p class="text-sm text-muted-foreground mt-2 italic">${alt}</p>` : ""}
+      </div>`
+    })
 
     // Convertir código en línea
     text = text.replace(/`([^`]+)`/g, '<code class="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">$1</code>')
@@ -198,7 +214,7 @@ export function MarkdownViewer() {
       {/* Markdown Content */}
       <Card>
         <CardContent className="p-6">
-          <SimpleMarkdownRenderer content={content.content} />
+          <SimpleMarkdownRenderer content={content.content} filePath={content.path} />
         </CardContent>
       </Card>
     </div>
