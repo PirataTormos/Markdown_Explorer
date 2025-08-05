@@ -14,7 +14,7 @@ import { useMarkdownStore } from "@/lib/store"
 const inter = Inter({ subsets: ["latin"] })
 
 function HeaderContent() {
-  const { setCurrentFile } = useMarkdownStore()
+  const { setCurrentFile, currentFile } = useMarkdownStore()
 
   return (
     <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
@@ -23,9 +23,11 @@ function HeaderContent() {
       <Button
         variant="ghost"
         onClick={() => setCurrentFile(null)}
-        className="text-lg font-semibold hover:bg-accent/50 px-3"
+        className={`text-lg font-semibold hover:bg-accent/50 px-3 transition-colors ${
+          currentFile === null ? "bg-accent/30" : ""
+        }`}
       >
-        FRIK-E3D
+        🏠 FRIK-E3D
       </Button>
       <div className="ml-auto">
         <ModeToggle />
