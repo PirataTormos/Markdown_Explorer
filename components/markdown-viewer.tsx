@@ -5,6 +5,10 @@ import { FileText, Calendar, HardDrive, Loader2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useMarkdownStore } from "@/lib/store"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
+import { CustomSyntaxHighlighter } from "./syntax-highlighter"
+import type { JSX } from "react/jsx-runtime"
 
 interface FileContent {
   content: string
@@ -13,73 +17,181 @@ interface FileContent {
   modified: string
 }
 
-// Componente simple para renderizar Markdown sin dependencias externas
-function SimpleMarkdownRenderer({ content }: { content: string }) {
-  const renderMarkdown = (text: string) => {
-    // Convertir headers
-    text = text.replace(/^### (.*$)/gim, '<h3 class="text-xl font-semibold mt-5 mb-2">$1</h3>')
-    text = text.replace(/^## (.*$)/gim, '<h2 class="text-2xl font-semibold mt-6 mb-3">$1</h2>')
-    text = text.replace(/^# (.*$)/gim, '<h1 class="text-3xl font-bold mt-8 mb-4 pb-2 border-b border-border">$1</h1>')
+// Componente personalizado para imágenes
+const ImageComponent = ({ src, alt, filePath }: { src?: string; alt?: string; filePath: string }) => {
+  if (!src) return null
 
-    // Convertir código en línea
-    text = text.replace(/`([^`]+)`/g, '<code class="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">$1</code>')
-
-    // Convertir bloques de código
-    text = text.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
-      const language = lang || "text"
-      return `<div class="relative my-4">
-        <div class="absolute top-2 right-2 text-xs text-muted-foreground bg-muted px-2 py-1 rounded">${language}</div>
-        <pre class="bg-muted p-4 rounded-lg overflow-x-auto border">
-          <code class="text-sm font-mono">${code.trim()}</code>
-        </pre>
-      </div>`
-    })
-
-    // Convertir enlaces
-    text = text.replace(
-      /\[([^\]]+)\]$$([^)]+)$$/g,
-      '<a href="$2" class="text-primary hover:text-primary/80 underline underline-offset-2 hover:underline-offset-4 transition-all" target="_blank" rel="noopener noreferrer">$1</a>',
-    )
-
-    // Convertir texto en negrita
-    text = text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-    text = text.replace(/__(.*?)__/g, "<strong>$1</strong>")
-
-    // Convertir texto en cursiva
-    text = text.replace(/\*(.*?)\*/g, "<em>$1</em>")
-    text = text.replace(/_(.*?)_/g, "<em>$1</em>")
-
-    // Convertir listas
-    text = text.replace(/^- (.*$)/gim, '<li class="text-foreground">$1</li>')
-    text = text.replace(/^\* (.*$)/gim, '<li class="text-foreground">$1</li>')
-    text = text.replace(/^\+ (.*$)/gim, '<li class="text-foreground">$1</li>')
-
-    // Envolver listas en ul
-    text = text.replace(
-      /(<li class="text-foreground">.*<\/li>)/gs,
-      '<ul class="list-disc list-inside space-y-1 my-4">$1</ul>',
-    )
-
-    // Convertir listas numeradas
-    text = text.replace(/^\d+\. (.*$)/gim, '<li class="text-foreground">$1</li>')
-
-    // Convertir blockquotes
-    text = text.replace(
-      /^> (.*$)/gim,
-      '<blockquote class="border-l-4 border-primary/20 pl-4 py-2 my-4 italic text-muted-foreground bg-muted/30 rounded-r">$1</blockquote>',
-    )
-
-    // Convertir líneas horizontales
-    text = text.replace(/^---$/gim, '<hr class="border-border my-8" />')
-
-    // Convertir saltos de línea
-    text = text.replace(/\n\n/g, '</p><p class="mb-4">')
-    text = text.replace(/\n/g, "<br />")
-
-    return `<div class="prose prose-gray dark:prose-invert max-w-none"><p class="mb-4">${text}</p></div>`
+  // Si la imagen es una ruta relativa, construir la ruta completa
+  let imageSrc = src
+  if (!src.startsWith("http") && !src.startsWith("/")) {
+    // Obtener el directorio del archivo actual
+    const fileDir = filePath.substring(0, filePath.lastIndexOf("/"))
+    imageSrc = fileDir ? `${fileDir}/${src}` : src
   }
 
-  return <div className="markdown-content" dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }} />
+  return (
+    <div className="my-6 text-center">
+      <img
+        src={`/api/image?path=${encodeURIComponent(imageSrc)}`}
+        alt={alt || ""}
+        className="max-w-full h-auto rounded-lg shadow-lg mx-auto border border-border/20"
+      />
+      {alt && <p className="text-sm text-muted-foreground mt-3 italic font-medium">{alt}</p>}
+    </div>
+  )
+}
+
+// Componente personalizado para código
+const CodeComponent = ({
+  inline,
+  className,
+  children,
+  ...props
+}: {
+  inline?: boolean
+  className?: string
+  children?: React.ReactNode
+}) => {
+  const match = /language-(\w+)/.exec(className || "")
+  const language = match ? match[1] : "text"
+
+  if (inline) {
+    return (
+      <code className="bg-muted px-2 py-1 rounded text-sm font-mono text-foreground border border-border/30" {...props}>
+        {children}
+      </code>
+    )
+  }
+
+  return (
+    <div className="my-6 rounded-lg overflow-hidden border border-border/30 shadow-sm">
+      {language !== "text" && (
+        <div className="bg-muted px-4 py-2 text-xs font-medium text-muted-foreground border-b border-border/30 flex items-center justify-between">
+          <span className="uppercase tracking-wide">{language}</span>
+          <span className="text-xs opacity-60">Code</span>
+        </div>
+      )}
+      <CustomSyntaxHighlighter language={language}>{String(children).replace(/\n$/, "")}</CustomSyntaxHighlighter>
+    </div>
+  )
+}
+
+// Componente personalizado para blockquotes
+const BlockquoteComponent = ({ children }: { children?: React.ReactNode }) => (
+  <blockquote className="border-l-4 border-primary/30 pl-6 py-4 my-6 bg-muted/30 rounded-r-lg italic text-muted-foreground">
+    <div className="text-base leading-relaxed">{children}</div>
+  </blockquote>
+)
+
+// Componente personalizado para tablas
+const TableComponent = ({ children }: { children?: React.ReactNode }) => (
+  <div className="my-6 overflow-x-auto rounded-lg border border-border shadow-sm">
+    <table className="w-full border-collapse bg-card">{children}</table>
+  </div>
+)
+
+const TableHeaderComponent = ({ children }: { children?: React.ReactNode }) => (
+  <thead className="bg-muted/50">{children}</thead>
+)
+
+const TableRowComponent = ({ children }: { children?: React.ReactNode }) => (
+  <tr className="border-b border-border/50 hover:bg-muted/20 transition-colors">{children}</tr>
+)
+
+const TableCellComponent = ({ children }: { children?: React.ReactNode }) => (
+  <td className="px-4 py-3 text-sm border-r border-border/30 last:border-r-0">{children}</td>
+)
+
+const TableHeaderCellComponent = ({ children }: { children?: React.ReactNode }) => (
+  <th className="px-4 py-3 text-left text-sm font-semibold text-foreground border-r border-border/30 last:border-r-0">
+    {children}
+  </th>
+)
+
+// Componente personalizado para listas
+const ListComponent = ({ ordered, children }: { ordered?: boolean; children?: React.ReactNode }) => {
+  const Component = ordered ? "ol" : "ul"
+  return (
+    <Component className={`my-4 space-y-2 ${ordered ? "list-decimal" : "list-disc"} list-inside pl-4`}>
+      {children}
+    </Component>
+  )
+}
+
+const ListItemComponent = ({ children }: { children?: React.ReactNode }) => (
+  <li className="text-foreground leading-relaxed pl-2">{children}</li>
+)
+
+// Componente personalizado para headings
+const HeadingComponent = ({ level, children }: { level: number; children?: React.ReactNode }) => {
+  const Component = `h${level}` as keyof JSX.IntrinsicElements
+  const styles = {
+    1: "text-3xl font-bold mt-8 mb-4 pb-3 border-b-2 border-border text-foreground",
+    2: "text-2xl font-semibold mt-6 mb-3 text-foreground",
+    3: "text-xl font-semibold mt-5 mb-2 text-foreground",
+    4: "text-lg font-medium mt-4 mb-2 text-foreground",
+    5: "text-base font-medium mt-3 mb-1 text-foreground",
+    6: "text-sm font-medium mt-2 mb-1 text-foreground",
+  }
+
+  return <Component className={styles[level as keyof typeof styles] || styles[6]}>{children}</Component>
+}
+
+// Componente personalizado para párrafos
+const ParagraphComponent = ({ children }: { children?: React.ReactNode }) => (
+  <p className="mb-4 leading-relaxed text-foreground">{children}</p>
+)
+
+// Componente personalizado para enlaces
+const LinkComponent = ({ href, children }: { href?: string; children?: React.ReactNode }) => (
+  <a
+    href={href}
+    className="text-primary hover:text-primary/80 underline underline-offset-2 hover:underline-offset-4 transition-all font-medium"
+    target={href?.startsWith("http") ? "_blank" : undefined}
+    rel={href?.startsWith("http") ? "noopener noreferrer" : undefined}
+  >
+    {children}
+  </a>
+)
+
+// Componente personalizado para líneas horizontales
+const HrComponent = () => <hr className="my-8 border-border border-t-2" />
+
+function EnhancedMarkdownRenderer({ content, filePath }: { content: string; filePath: string }) {
+  return (
+    <div className="prose prose-lg max-w-none">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          img: ({ src, alt }) => <ImageComponent src={src || "/placeholder.svg"} alt={alt} filePath={filePath} />,
+          code: CodeComponent,
+          blockquote: BlockquoteComponent,
+          table: TableComponent,
+          thead: TableHeaderComponent,
+          tbody: ({ children }) => <tbody>{children}</tbody>,
+          tr: TableRowComponent,
+          td: TableCellComponent,
+          th: TableHeaderCellComponent,
+          ul: ({ children }) => <ListComponent ordered={false}>{children}</ListComponent>,
+          ol: ({ children }) => <ListComponent ordered={true}>{children}</ListComponent>,
+          li: ListItemComponent,
+          h1: ({ children }) => <HeadingComponent level={1}>{children}</HeadingComponent>,
+          h2: ({ children }) => <HeadingComponent level={2}>{children}</HeadingComponent>,
+          h3: ({ children }) => <HeadingComponent level={3}>{children}</HeadingComponent>,
+          h4: ({ children }) => <HeadingComponent level={4}>{children}</HeadingComponent>,
+          h5: ({ children }) => <HeadingComponent level={5}>{children}</HeadingComponent>,
+          h6: ({ children }) => <HeadingComponent level={6}>{children}</HeadingComponent>,
+          p: ParagraphComponent,
+          a: LinkComponent,
+          hr: HrComponent,
+          strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+          em: ({ children }) => <em className="italic text-foreground">{children}</em>,
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  )
 }
 
 export function MarkdownViewer() {
@@ -197,8 +309,8 @@ export function MarkdownViewer() {
 
       {/* Markdown Content */}
       <Card>
-        <CardContent className="p-6">
-          <SimpleMarkdownRenderer content={content.content} />
+        <CardContent className="p-8">
+          <EnhancedMarkdownRenderer content={content.content} filePath={content.path} />
         </CardContent>
       </Card>
     </div>
