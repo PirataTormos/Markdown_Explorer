@@ -1,9 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { Search, FileText, Loader2 } from "lucide-react"
+import { Search, FileText, Loader2, FolderOpen, Copy } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { useMarkdownStore } from "@/lib/store"
 
 interface SearchResult {
@@ -54,106 +55,131 @@ export function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-      <div className="w-full max-w-4xl">
-        {/* Header */}
+    <div className="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center p-8">
+      <div className="w-full max-w-3xl mx-auto">
+        {/* Badge */}
+        <div className="text-center mb-8">
+          <Badge variant="secondary" className="text-sm font-medium px-4 py-2 rounded-full">
+            📄 Explorador de Documentación E3D
+          </Badge>
+        </div>
+
+        {/* Main Title */}
         <div className="text-center mb-12">
-          <div className="relative inline-block mb-6">
-            <h1 className="text-7xl font-black tracking-tight bg-gradient-to-r from-gray-800 via-gray-700 to-gray-600 dark:from-gray-200 dark:via-gray-300 dark:to-gray-400 bg-clip-text text-transparent">
-              FRIK-E3D
-            </h1>
-            <div className="absolute -inset-1 bg-gradient-to-r from-gray-400 to-gray-500 rounded-lg blur opacity-10 animate-pulse"></div>
-          </div>
-          <p className="text-xl text-gray-600 dark:text-gray-300 font-medium">
-            Documentación E3D al alcance de tus dedos
+          <h1 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6 leading-tight">
+            Explora tus documentos
+            <br />
+            de manera inteligente
+          </h1>
+          <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed">
+            Busca, navega y visualiza tus archivos Markdown con una interfaz moderna y búsqueda conceptual avanzada.
           </p>
         </div>
 
-        {/* Search Container */}
-        <div className="relative">
-          {/* Search Input */}
-          <div className="relative group">
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-500 rounded-2xl blur opacity-20 group-hover:opacity-30 transition duration-300"></div>
-            <div className="relative bg-white dark:bg-gray-900 rounded-2xl p-2 border border-gray-200 dark:border-gray-700 shadow-lg">
-              <div className="flex items-center gap-4 px-4 py-4">
-                <Search className="h-6 w-6 text-gray-400 flex-shrink-0" />
-                <Input
-                  placeholder="Buscar en documentación E3D..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="border-0 bg-transparent text-lg placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
-                />
-                {searching && <Loader2 className="h-6 w-6 animate-spin text-gray-500 flex-shrink-0" />}
-              </div>
+        {/* Search Bar */}
+        <div className="mb-12">
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-gray-400" />
             </div>
+            <Input
+              placeholder="Busca por conceptos, títulos, contenido... ej: 'configuración API', 'tutorial React'"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-12 pr-12 py-6 text-lg border-gray-200 dark:border-gray-800 rounded-2xl bg-gray-50 dark:bg-gray-900 focus:bg-white dark:focus:bg-gray-800 transition-colors"
+            />
+            {searching && (
+              <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
+                <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+              </div>
+            )}
           </div>
 
-          {/* Results */}
-          {(searchQuery.length >= 2 || searchResults.length > 0) && (
-            <div className="mt-4 relative">
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-500 rounded-2xl blur opacity-15"></div>
-              <div className="relative bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 max-h-96 overflow-hidden shadow-lg">
-                {searchResults.length === 0 ? (
-                  <div className="p-12 text-center">
-                    {searching ? (
-                      <div className="space-y-3">
-                        <Loader2 className="h-12 w-12 animate-spin mx-auto text-gray-500" />
-                        <p className="text-gray-500 dark:text-gray-400">Buscando...</p>
+          {/* Search Results */}
+          {searchQuery.length >= 2 && (
+            <div className="mt-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-lg overflow-hidden">
+              {searchResults.length === 0 ? (
+                <div className="p-8 text-center">
+                  {searching ? (
+                    <div className="space-y-3">
+                      <Loader2 className="h-8 w-8 animate-spin mx-auto text-gray-400" />
+                      <p className="text-gray-500 dark:text-gray-400">Buscando...</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="w-12 h-12 mx-auto rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                        <Search className="h-6 w-6 text-gray-400" />
                       </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-r from-gray-400 to-gray-500 flex items-center justify-center">
-                          <Search className="h-8 w-8 text-white" />
-                        </div>
-                        <p className="text-gray-500 dark:text-gray-400">
-                          {searchQuery.length >= 2 ? "No se encontraron resultados" : "Comienza a escribir para buscar"}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="overflow-y-auto max-h-96">
-                    {searchResults.map((result, index) => (
-                      <div key={result.path} className="group">
-                        <Button
-                          variant="ghost"
-                          onClick={() => handleFileSelect(result.path)}
-                          className="w-full p-6 h-auto justify-start hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all duration-200"
-                        >
-                          <div className="flex items-start gap-4 w-full">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-gray-400 to-gray-500 flex items-center justify-center flex-shrink-0">
-                              <FileText className="h-5 w-5 text-white" />
-                            </div>
-                            <div className="text-left flex-1 min-w-0">
-                              <p className="font-semibold text-gray-900 dark:text-gray-100 truncate group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors">
-                                {result.name}
-                              </p>
-                              <p className="text-sm text-gray-500 dark:text-gray-400 truncate mt-1">{result.path}</p>
-                              {result.matches.length > 0 && (
-                                <div className="mt-3 space-y-1">
-                                  {result.matches.slice(0, 2).map((match, matchIndex) => (
-                                    <div
-                                      key={matchIndex}
-                                      className="text-xs bg-gray-100 dark:bg-gray-800 rounded-lg px-3 py-2 text-gray-600 dark:text-gray-300 truncate"
-                                    >
-                                      {match}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
+                      <p className="text-gray-500 dark:text-gray-400">No se encontraron resultados</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="max-h-80 overflow-y-auto">
+                  {searchResults.map((result, index) => (
+                    <div key={result.path}>
+                      <Button
+                        variant="ghost"
+                        onClick={() => handleFileSelect(result.path)}
+                        className="w-full p-6 h-auto justify-start hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                      >
+                        <div className="flex items-start gap-4 w-full">
+                          <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
+                            <FileText className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                           </div>
-                        </Button>
-                        {index < searchResults.length - 1 && (
-                          <div className="mx-6 border-b border-gray-200 dark:border-gray-700"></div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                          <div className="text-left flex-1 min-w-0">
+                            <p className="font-semibold text-gray-900 dark:text-white truncate">{result.name}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 truncate mt-1">{result.path}</p>
+                            {result.matches.length > 0 && (
+                              <div className="mt-3 space-y-2">
+                                {result.matches.slice(0, 2).map((match, matchIndex) => (
+                                  <div
+                                    key={matchIndex}
+                                    className="text-xs bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2 text-gray-600 dark:text-gray-300"
+                                  >
+                                    {match}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </Button>
+                      {index < searchResults.length - 1 && (
+                        <div className="border-b border-gray-100 dark:border-gray-800"></div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <Button
+            size="lg"
+            className="bg-black hover:bg-gray-800 text-white px-8 py-4 rounded-xl text-base font-medium"
+            onClick={() => {
+              // Trigger sidebar or file explorer
+              document.querySelector('[data-sidebar="trigger"]')?.click?.()
+            }}
+          >
+            <FolderOpen className="h-5 w-5 mr-2" />
+            Abrir Explorador de Archivos
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
+            className="border-gray-200 dark:border-gray-800 px-8 py-4 rounded-xl text-base font-medium bg-transparent"
+            onClick={() => {
+              navigator.clipboard.writeText(window.location.href)
+            }}
+          >
+            <Copy className="h-5 w-5 mr-2" />
+            Copiar Enlace
+          </Button>
         </div>
       </div>
     </div>
