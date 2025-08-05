@@ -7,10 +7,8 @@ import { Badge } from "@/components/ui/badge"
 import { useMarkdownStore } from "@/lib/store"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
-import { oneDark, oneLight } from "react-syntax-highlighter/dist/esm/styles/prism"
-import { useTheme } from "next-themes"
-import type { JSX } from "react/jsx-runtime" // Import JSX to fix the undeclared variable error
+import { CustomSyntaxHighlighter } from "./syntax-highlighter"
+import type { JSX } from "react/jsx-runtime"
 
 interface FileContent {
   content: string
@@ -54,9 +52,8 @@ const CodeComponent = ({
   className?: string
   children?: React.ReactNode
 }) => {
-  const { theme } = useTheme()
   const match = /language-(\w+)/.exec(className || "")
-  const language = match ? match[1] : ""
+  const language = match ? match[1] : "text"
 
   if (inline) {
     return (
@@ -68,32 +65,13 @@ const CodeComponent = ({
 
   return (
     <div className="my-6 rounded-lg overflow-hidden border border-border/30 shadow-sm">
-      {language && (
+      {language !== "text" && (
         <div className="bg-muted px-4 py-2 text-xs font-medium text-muted-foreground border-b border-border/30 flex items-center justify-between">
           <span className="uppercase tracking-wide">{language}</span>
           <span className="text-xs opacity-60">Code</span>
         </div>
       )}
-      <SyntaxHighlighter
-        style={theme === "dark" ? oneDark : oneLight}
-        language={language || "text"}
-        PreTag="div"
-        className="!m-0 !bg-transparent"
-        customStyle={{
-          margin: 0,
-          padding: "1rem",
-          background: "transparent",
-          fontSize: "0.875rem",
-          lineHeight: "1.5",
-        }}
-        codeTagProps={{
-          style: {
-            fontFamily: "ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace",
-          },
-        }}
-      >
-        {String(children).replace(/\n$/, "")}
-      </SyntaxHighlighter>
+      <CustomSyntaxHighlighter language={language}>{String(children).replace(/\n$/, "")}</CustomSyntaxHighlighter>
     </div>
   )
 }
