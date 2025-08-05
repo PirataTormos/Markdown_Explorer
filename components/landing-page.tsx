@@ -4,7 +4,6 @@ import * as React from "react"
 import { Search, FileText, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { useMarkdownStore } from "@/lib/store"
 
 interface SearchResult {
@@ -57,22 +56,16 @@ export function LandingPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center p-8">
       <div className="w-full max-w-3xl mx-auto">
-        {/* Badge */}
-        <div className="text-center mb-8">
-          <Badge variant="secondary" className="text-sm font-medium px-4 py-2 rounded-full">
-            📄 Explorador de Documentación E3D
-          </Badge>
-        </div>
-
         {/* Main Title */}
         <div className="text-center mb-12">
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6 leading-tight">
-            Explora tus documentos
+            Explora la documentación
             <br />
-            de manera inteligente
+            de E3D
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed">
-            Busca, navega y visualiza tus archivos Markdown con una interfaz moderna y búsqueda conceptual avanzada.
+            Herramienta interna del departamento para acceso rápido y eficiente a la documentación técnica y recursos de
+            E3D.
           </p>
         </div>
 
@@ -115,7 +108,7 @@ export function LandingPage() {
                   )}
                 </div>
               ) : (
-                <div className="max-h-80 overflow-y-auto">
+                <div className="max-h-96 overflow-y-auto">
                   {searchResults.map((result, index) => (
                     <div key={result.path}>
                       <Button
