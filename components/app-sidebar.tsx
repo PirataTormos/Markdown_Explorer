@@ -168,11 +168,11 @@ export function AppSidebar() {
             <Collapsible open={isExpanded} onOpenChange={() => toggleFolder(node.path)}>
               <CollapsibleTrigger asChild>
                 <SidebarMenuButton
-                  className="w-full justify-start min-h-8 h-auto py-2"
+                  className="justify-start min-h-8 h-auto py-2 flex-1"
                   style={{ paddingLeft: `${level * 16 + 8}px` }}
                 >
                   {isExpanded ? <FolderOpen className="h-4 w-4 shrink-0" /> : <Folder className="h-4 w-4 shrink-0" />}
-                  <span className="ml-2 whitespace-nowrap overflow-visible text-left leading-tight">{node.name}</span>
+                  <span className="ml-2 text-left leading-tight flex-1 break-words">{node.name}</span>
                 </SidebarMenuButton>
               </CollapsibleTrigger>
               <CollapsibleContent>
@@ -187,11 +187,11 @@ export function AppSidebar() {
             <SidebarMenuButton
               onClick={() => handleFileSelect(node.path)}
               isActive={currentFile === node.path}
-              className="w-full justify-start min-h-8 h-auto py-2"
+              className="justify-start min-h-8 h-auto py-2 flex-1"
               style={{ paddingLeft: `${level * 16 + 8}px` }}
             >
               <FileText className="h-4 w-4 shrink-0" />
-              <span className="ml-2 whitespace-nowrap overflow-visible text-left leading-tight">{node.name}</span>
+              <span className="ml-2 text-left leading-tight flex-1 break-words">{node.name}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         )
@@ -213,10 +213,10 @@ export function AppSidebar() {
         <SidebarMenuButton
           onClick={() => handleFileSelect(result.path)}
           isActive={currentFile === result.path}
-          className="w-full justify-start min-h-8 h-auto py-2"
+          className="justify-start min-h-8 h-auto py-2 flex-1"
         >
           <FileText className="h-4 w-4 shrink-0" />
-          <span className="ml-2 whitespace-nowrap overflow-visible text-left leading-tight">{result.name}</span>
+          <span className="ml-2 text-left leading-tight flex-1 break-words">{result.name}</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
     ))
