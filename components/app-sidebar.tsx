@@ -145,9 +145,9 @@ export function AppSidebar() {
           <SidebarMenuItem key={node.path}>
             <Collapsible open={isExpanded} onOpenChange={() => toggleFolder(node.path)}>
               <CollapsibleTrigger asChild>
-                <SidebarMenuButton className="w-full justify-start">
-                  {isExpanded ? <FolderOpen className="h-4 w-4" /> : <Folder className="h-4 w-4" />}
-                  <span>{node.name}</span>
+                <SidebarMenuButton className="w-full justify-start min-h-8 h-auto py-2">
+                  {isExpanded ? <FolderOpen className="h-4 w-4 shrink-0" /> : <Folder className="h-4 w-4 shrink-0" />}
+                  <span className="break-words text-left leading-tight">{node.name}</span>
                 </SidebarMenuButton>
               </CollapsibleTrigger>
               <CollapsibleContent>
@@ -162,10 +162,10 @@ export function AppSidebar() {
             <SidebarMenuButton
               onClick={() => handleFileSelect(node.path)}
               isActive={currentFile === node.path}
-              className="w-full justify-start"
+              className="w-full justify-start min-h-8 h-auto py-2"
             >
-              <FileText className="h-4 w-4" />
-              <span>{node.name}</span>
+              <FileText className="h-4 w-4 shrink-0" />
+              <span className="break-words text-left leading-tight">{node.name}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         )
@@ -187,10 +187,10 @@ export function AppSidebar() {
         <SidebarMenuButton
           onClick={() => handleFileSelect(result.path)}
           isActive={currentFile === result.path}
-          className="w-full justify-start"
+          className="w-full justify-start min-h-8 h-auto py-2"
         >
-          <FileText className="h-4 w-4" />
-          <span>{result.name}</span>
+          <FileText className="h-4 w-4 shrink-0" />
+          <span className="break-words text-left leading-tight">{result.name}</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
     ))
