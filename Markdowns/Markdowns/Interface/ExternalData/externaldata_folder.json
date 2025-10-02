@@ -1,0 +1,19 @@
+{
+  "folders": [
+    {
+      "name": "400757-ADI",
+      "path": "/Markdowns/Interface/ExternalData/400757-ADI/400757-adi_folder.json"
+    },
+    {
+      "name": "doc",
+      "path": "/Markdowns/Interface/ExternalData/doc/doc_folder.json"
+    }
+  ],
+  "files": [
+    {
+      "name": "ExternalData.md",
+      "path": "/Markdowns/Interface/ExternalData/ExternalData.md",
+      "description": ""
+    }
+  ]
+}

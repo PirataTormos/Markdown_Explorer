@@ -1,0 +1,52 @@
+﻿$S-  -- Synonym translation OFF
+-- ----------------------------------------------------------------
+-- Data Listing    Date : 17 Sep 2025 17:02
+
+ONERROR GOLABEL /ERROR3
+
+INPUT BEGIN
+NEW UDA /TP-WBSCOLOR
+ABLE 5
+UTYP TEXT
+ULEN 30
+ELEL ADD EQUI ZONE
+UDNA 'TP-WBSCOLOR'
+
+NEW UVALID
+UVVAL 'PDS'
+
+END
+NEW UVALID
+UVVAL 'MDS'
+
+END
+NEW UVALID
+UVVAL 'GUIDE_DWG'
+
+END
+NEW UVALID
+UVVAL 'END_OF_BASIC'
+
+END
+NEW UVALID
+UVVAL 'VENDOR'
+
+END
+NEW UVALID
+UVVAL 'MOVED'
+
+END
+END
+INPUT END  UDA /TP-WBSCOLOR
+INPUT FINISH
+-- Switch synonyms back on if an error occurs.
+LABEL /ERROR3
+handle ANY
+$S+
+RETURN ERROR
+endhandle
+
+-- End Data Listing    Date : 17 Sep 2025 17:02
+$S+  -- Synonym translation ON
+-- ----------------------------------------------------------------
+

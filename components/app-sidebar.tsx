@@ -42,7 +42,9 @@ export function AppSidebar() {
   const [searchResults, setSearchResults] = React.useState<SearchResult[]>([])
   const [searching, setSearching] = React.useState(false)
   const [expandedFolders, setExpandedFolders] = React.useState<Set<string>>(new Set())
-  const [openingFolder, setOpeningFolder] = React.useState(false)
+
+  const [maxNestingLevel, setMaxNestingLevel] = React.useState(0)
+
 
   const { setCurrentFile, currentFile } = useMarkdownStore()
   const { toast } = useToast()
@@ -172,6 +174,27 @@ export function AppSidebar() {
     setExpandedFolders(newExpanded)
   }
 
+  const calculateMaxNestingLevel = React.useCallback(
+    (nodes: FileNode[], currentLevel = 0): number => {
+      let maxLevel = currentLevel
+
+      for (const node of nodes) {
+        if (node.type === "directory" && expandedFolders.has(node.path) && node.children) {
+          const childLevel = calculateMaxNestingLevel(node.children, currentLevel + 1)
+          maxLevel = Math.max(maxLevel, childLevel)
+        }
+      }
+
+      return maxLevel
+    },
+    [expandedFolders],
+  )
+
+  React.useEffect(() => {
+    const newMaxLevel = calculateMaxNestingLevel(files)
+    setMaxNestingLevel(newMaxLevel)
+  }, [expandedFolders, files, calculateMaxNestingLevel])
+
   const renderFileTree = (nodes: FileNode[], level = 0) => {
     if (!nodes || nodes.length === 0) {
       return <div className="p-4 text-sm text-muted-foreground text-center">No files found</div>
@@ -185,9 +208,12 @@ export function AppSidebar() {
           <SidebarMenuItem key={node.path}>
             <Collapsible open={isExpanded} onOpenChange={() => toggleFolder(node.path)}>
               <CollapsibleTrigger asChild>
-                <SidebarMenuButton className="w-full justify-start">
-                  {isExpanded ? <FolderOpen className="h-4 w-4" /> : <Folder className="h-4 w-4" />}
-                  <span>{node.name}</span>
+                <SidebarMenuButton
+                  className="justify-start min-h-8 h-auto py-2 flex-1"
+                  style={{ paddingLeft: `${level * 16 + 8}px` }}
+                >
+                  {isExpanded ? <FolderOpen className="h-4 w-4 shrink-0" /> : <Folder className="h-4 w-4 shrink-0" />}
+                  <span className="ml-2 text-left leading-tight flex-1 break-words">{node.name}</span>
                 </SidebarMenuButton>
               </CollapsibleTrigger>
               <CollapsibleContent>
@@ -202,10 +228,11 @@ export function AppSidebar() {
             <SidebarMenuButton
               onClick={() => handleFileSelect(node.path)}
               isActive={currentFile === node.path}
-              className="w-full justify-start"
+              className="justify-start min-h-8 h-auto py-2 flex-1"
+              style={{ paddingLeft: `${level * 16 + 8}px` }}
             >
-              <FileText className="h-4 w-4" />
-              <span>{node.name}</span>
+              <FileText className="h-4 w-4 shrink-0" />
+              <span className="ml-2 text-left leading-tight flex-1 break-words">{node.name}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         )
@@ -227,17 +254,19 @@ export function AppSidebar() {
         <SidebarMenuButton
           onClick={() => handleFileSelect(result.path)}
           isActive={currentFile === result.path}
-          className="w-full justify-start"
+          className="justify-start min-h-8 h-auto py-2 flex-1"
         >
-          <FileText className="h-4 w-4" />
-          <span>{result.name}</span>
+          <FileText className="h-4 w-4 shrink-0" />
+          <span className="ml-2 text-left leading-tight flex-1 break-words">{result.name}</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
     ))
   }
 
+  const sidebarWidth = Math.max(280, 280 + maxNestingLevel * 40)
+
   return (
-    <Sidebar>
+    <Sidebar style={{ width: `${sidebarWidth}px` }} className="transition-all duration-300 ease-in-out">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
           <Search className="h-4 w-4" />

@@ -1,0 +1,41 @@
+var !nami name of ce
+
+var !ALLTUBI collect all  (TUBI)  for CE
+
+
+$!nami Func   UNSET
+handle any
+endhandle
+
+do !Tubi values !ALLTUBI 
+
+    if(!Tubi.dbref().Attribute('ITLE').INT()) LT 99 THEN	
+
+		if(!Tubi.dbref().Attribute('ITLE').INT()) EQ 0 THEN
+		ELSE
+		$!nami Function  'ERROR'
+		!tubiRef =  !Tubi.dbref()
+		!tubiOwner = !Tubi.dbref().owner.name
+		!tubilength = !Tubi.dbref().Itlength
+		!validation = :SPOOL-VALIDATION
+
+		
+		$p ==============================================================
+		$p ====> REVISAR EL TRAMO INFERIOR A 100mm SIGUIENTE <====
+		$p ==============================================================
+		$p $!tubiOwner
+		$p $!tubiRef
+		$p LONGITUD: $!tubilength
+			if :SPOOL-VALIDATION EQ '' THEN
+					$p ESTADO: SIN VALIDAR
+				ELSE
+					$p ESTADO: VALIDADO POR $!validation
+			ENDIF
+		$p _
+	--	$p error
+		SKIP
+		ENDIF
+	ELSE
+	endif
+
+enddo

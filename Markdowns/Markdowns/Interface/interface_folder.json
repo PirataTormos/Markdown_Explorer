@@ -1,0 +1,21 @@
+{
+  "folders": [
+    {
+      "name": "ExternalData",
+      "path": "/Markdowns/Interface/ExternalData/externaldata_folder.json"
+    },
+    {
+      "name": "Import3dFilesInto",
+      "path": "/Markdowns/Interface/Import3dFilesInto/import3dfilesinto_folder.json"
+    },
+    {
+      "name": "LaserScan",
+      "path": "/Markdowns/Interface/LaserScan/laserscan_folder.json"
+    },
+    {
+      "name": "Mechanical_Interface",
+      "path": "/Markdowns/Interface/Mechanical_Interface/mechanical_interface_folder.json"
+    }
+  ],
+  "files": []
+}

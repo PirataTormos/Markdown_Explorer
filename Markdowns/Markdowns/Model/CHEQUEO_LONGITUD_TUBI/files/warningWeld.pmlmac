@@ -1,0 +1,179 @@
+--------------------------------------------------------------------------------------
+-- File:		    warningWeld.pmlmac --> Master_Pmllib_E3D                        --
+-- Type:			Macro                                                           --
+-- Group:         	TPDesPipeExtracts                                               --
+-- Keyword:			Weld, spool, Straigth Tubis                                     --
+-- Module:			E3D                                                             --
+-- Replaces:                                                                        --
+--
+-- Author:			Andrés F. López R.                                              --
+-- Created:			18/02/2025                                                      --
+-- Review:			1.0 February 2025 
+-- Department:		Project Execution Systems
+-- Company:			Technip Energies France - Paris
+-- Description:		Macro to generate an alert when there is at least a Tubi    
+--                  with lenght < 50mm or < 90mm
+--					
+--------------------------------------------------------------------------------------
+-- Adjustments and Additions
+--
+-- **** NEXT VERSION ... ****
+-- * 
+--------------------------------------------------------------------------------------
+
+var !elementsPipe coll all for CE
+
+!nameTubi       = object string()
+!widthWeld      = object real()
+!minimumLength  = object real()
+!calcLength     = object real()
+!prevConnec     = object string()
+!nextConnec     = object string()
+!typeElePrev    = object string()
+!typeEleNext    = object string()
+!hrefBran       = object string()
+!trefBran       = object string()
+!namPipe        = object string()
+-- !phcBran        = object string()
+-- !ptcBran        = object string()
+
+var !namPipe name of ce
+
+-- Restriction Variables
+----------------------------
+!widthWeld          = 10mm                                              $*Andres F. Lopez - 17/02/2025: For this version this variable will be explicitly defined
+                                                                        $*In the future it could be considered as geometric parameter of the SPECO WELD.
+!minimumLength      = 99mm                                              $*Minimum distance between welds - Without taking into account pipe PITTING
+!minimumLengthPitt  = 90mm                                              $*Minimum distance between welds - Considering PITTING in the pipe
+-- ACON and LCON valid -->      TUB, BWD
+----------------------------
+
+!j = 1
+
+-- Evaluate types of connection and attributes of both previous and next element to TUBI
+----------------------------------------------------------------------------------------
+do !i indices !elementsPipe
+    -- q var !elementsPipe[!i].dbref().namtyp
+
+    if ( !elementsPipe[!i].dbref().type.eq('TUBI') ) then
+
+        
+        !calcLength =   ( !elementsPipe[!i].dbref().ltlen - !widthWeld )
+        
+        ----------
+        !prevConnec =   !elementsPipe[!i-!j].dbref().lcon
+        handle (2,752)      $*Array element 0 does not exist --> Andres F. Lopez - 17/02/2025: The first component of the branch of the pipe is a TUBI
+            !prevConnec = 'null'
+        elsehandle (2, 201) $*Element BRANCH does not have attribute LCON
+            !prevConnec = 'null'
+        endhandle
+
+        ----------
+        !nextConnec =   !elementsPipe[!i+!j].dbref().acon
+        handle (2, 201)     $*
+            !nextConnec = 'null'
+        elsehandle (2, 752) $*Element array ( !elementsPipe.size() + 1 ) does not exist
+            !nextConnec = 'null'
+        endhandle
+
+        ----------
+        !typeElePrev = !elementsPipe[!i-!j].dbref().type
+        handle (2, 752) $*
+            !typeElePrev = 'null'
+        endhandle
+
+        !typeEleNext = !elementsPipe[!i+!j].dbref().type
+        handle (2, 752) $*
+            !typeEleNext = 'null'
+        endhandle
+
+        --q var !calcLength
+        --q var !prevConnec
+        --q var !nextConnec
+
+        -- Element to which the current Branch element -Tubi[i]- is connected
+        ---------------------------------------------------------------------
+        if ( !typeElePrev.eq('BRAN') ) then     $*Tubi owned to Branch
+            
+            !nameBranch = !elementsPipe[!i-!j].dbref().name.split().last()                          $*The branch to which the TUBI[!i] belongs
+            
+            !hrefBran   = !nameBranch.dbref().href.namtyp                                           $*The component of the main branch to which the TUBI[i] of the current branch is connected
+            handle (2, 754) $*Attribute is Unset
+                !hrefBran = 'Undefined'
+            endhandle
+            
+            !trefBran   = !nameBranch.dbref().tref.namtyp
+            handle (2,754) $*Attribute is Unset
+                !trefBran = 'Undefined'
+            endhandle
+
+            --q var !hrefBran
+            --q var !trefBran
+            !phcBran    = !nameBranch.dbref().phcon
+            !ptcBran    = !nameBranch.dbref().ptcon
+            
+            -- Validate the length of the TUBI and the connection type
+            if ( ( ( !nextConnec eq 'BWD' ) or ( !nextConnec eq 'TUB' ) ) and ( !hrefBran neq 'Undefined' ) and ( ( !phcBran eq 'BWD' ) or ( !phcBran eq 'TUB' ) ) ) then
+                
+                if ( !calcLength LT !minimumLength ) then
+                    !nameTubi = !elementsPipe[!i].dbref().name
+                    --write ' --> Check short tubi!!, next Branch: ' + !nameTubi
+                    --write ''
+                    !!CE = !elementsPipe[!i].dbref()
+                    enhance $!!CE colour 2
+                else
+                    !!CE = !elementsPipe[!i].dbref()
+                    unenhance $!!CE
+                    -- $P --> The TUBI is correct. Without pittings
+                endif
+            else
+                -- The TUBIs does not comply with the connection types
+            endif
+            ----------------------------------------------------------
+            
+        else
+            -- Validate the length of the TUBI and the connection type
+            if ( ( ( !prevConnec eq 'BWD' ) or ( !prevConnec eq 'TUB' ) )  and ( ( !nextConnec eq 'BWD' ) or ( !nextConnec eq 'TUB' ) ) and ( !typeElePrev eq ( 'OLET' ) ) ) then $*                                               $*Considerinf pittings
+                
+                if ( !calcLength LT !minimumLengthPitt ) then
+                    !nameTubi = !elementsPipe[!i].dbref().name
+                    --write ' --> Check short tubi!!, including pittings: ' + !nameTubi 
+                    --write ''
+                    !!CE = !elementsPipe[!i].dbref()
+                    enhance $!!CE colour 2
+                else
+                    !!CE = !elementsPipe[!i].dbref()
+                    unenhance $!!CE
+                    -- $P --> There are pittings, but TUBI is correct
+                endif
+            else
+                if ( ( ( !prevConnec eq 'BWD' ) or ( !prevConnec eq 'TUB' ) )  and ( ( !nextConnec eq 'BWD' ) or ( !nextConnec eq 'TUB' ) ) ) then                                                                                   $*Without considering pittings
+
+                    if ( !calcLength LT !minimumLength ) then
+                        !nameTubi = !elementsPipe[!i].dbref().name
+                        --write ' --> Check short tubi!!: ' + !nameTubi
+                        --write ''
+                        !!CE = !elementsPipe[!i].dbref()
+                        enhance $!!CE colour 2
+                    else
+                        !!CE = !elementsPipe[!i].dbref()
+                        unenhance $!!CE
+                        -- $P --> No pitting. The TUBI is correct
+                    endif
+                else
+                    -- The TUBIs does not comply with the connection types
+                endif
+            endif
+            ----------------------------------------------------------
+        endif
+
+    else
+        -- It is not TUBI element
+    endif
+
+enddo
+----------------------------------------------------------------------------------------
+
+!!CE = !namPipe.dbref()
+
+-- **Include other features ** --
