@@ -60,6 +60,20 @@ export function AppSidebar() {
     return () => clearTimeout(delayedSearch)
   }, [searchQuery])
 
+  const maxDepth = React.useMemo(() => {
+    const getDepth = (nodes: FileNode[], currentDepth = 0): number => {
+      let maxDepth = currentDepth
+      for (const node of nodes) {
+        if (node.type === "directory" && expandedFolders.has(node.path) && node.children) {
+          const childDepth = getDepth(node.children, currentDepth + 1)
+          maxDepth = Math.max(maxDepth, childDepth)
+        }
+      }
+      return maxDepth
+    }
+    return getDepth(files)
+  }, [files, expandedFolders])
+
   const loadFiles = async () => {
     try {
       setLoading(true)
@@ -205,8 +219,10 @@ export function AppSidebar() {
     ))
   }
 
+  const sidebarWidth = `${16 + maxDepth * 3}rem`
+
   return (
-    <Sidebar>
+    <Sidebar style={{ "--sidebar-width": sidebarWidth } as React.CSSProperties}>
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
           <Search className="h-4 w-4" />
