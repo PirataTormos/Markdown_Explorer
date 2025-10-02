@@ -1,8 +1,0 @@
-db tremplates(geometrias): 49047,49066
-db spec: 2048,2038
-
-
-"\\Es001vs0120\hyf\PROJECT\HYF\hyf000\hyf49047_0001"
-"\\Es001vs0120\hyf\PROJECT\HYF\hyf000\hyf49066_0001"
-"\\Es001vs0120\hyf\PROJECT\HYF\hyf000\hyf2048_0001"
-"\\Es001vs0120\hyf\PROJECT\HYF\hyf000\hyf2038_0001"
