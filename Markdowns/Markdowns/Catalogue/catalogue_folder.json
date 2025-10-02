@@ -29,6 +29,10 @@
       "path": "/Markdowns/Catalogue/PIPING_COMPONENTS/piping_components_folder.json"
     },
     {
+      "name": "TEMPLATES",
+      "path": "/Markdowns/Catalogue/TEMPLATES/templates_folder.json"
+    },
+    {
       "name": "VALVESELECTION",
       "path": "/Markdowns/Catalogue/VALVESELECTION/valveselection_folder.json"
     }

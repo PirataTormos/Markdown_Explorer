@@ -1,6 +1,10 @@
 {
   "folders": [
     {
+      "name": "Aumento-Memoria-CPU",
+      "path": "/Markdowns/IT/SERVERS/Aumento-Memoria-CPU/aumento-memoria-cpu_folder.json"
+    },
+    {
       "name": "Espacio",
       "path": "/Markdowns/IT/SERVERS/Espacio/espacio_folder.json"
     },
