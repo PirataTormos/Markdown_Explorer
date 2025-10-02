@@ -1,9 +1,0 @@
-{
-  "folderPath": "./Markdowns",
-  "openInSystemExplorer": true,
-  "description": "Configuración del Markdown Explorer",
-  "settings": {
-    "defaultFolder": "./Markdowns",
-    "allowFolderBrowsing": true
-  }
-}
