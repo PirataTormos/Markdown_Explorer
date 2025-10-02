@@ -27,7 +27,7 @@ export default function RootLayout({
           <SidebarProvider>
             <div className="flex min-h-screen w-full">
               <AppSidebar />
-              <div className="flex-1 flex flex-col">
+              <div className="flex-1 flex flex-col transition-all duration-200 ease-linear md:ml-[var(--sidebar-width)]">
                 <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-6">
                   <h1 className="text-xl font-semibold">Markdown Explorer</h1>
                   <div className="ml-auto">
