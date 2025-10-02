@@ -269,13 +269,17 @@ export function MarkdownViewer() {
       setLoading(true)
       setError(null)
 
+      console.log("Loading file content for:", filePath)
+
       const response = await fetch(`/api/content?path=${encodeURIComponent(filePath)}`)
       const data = await response.json()
 
       if (data.success) {
         setContent(data.data)
+        console.log("File content loaded successfully")
       } else {
         setError(data.error || "Failed to load file")
+        console.error("Failed to load file:", data.error)
       }
     } catch (err) {
       setError("Failed to load file content")
@@ -333,6 +337,7 @@ export function MarkdownViewer() {
           <div className="text-red-500 mb-4">⚠️</div>
           <h2 className="text-xl font-semibold mb-2">Error Loading File</h2>
           <p className="text-muted-foreground">{error}</p>
+          <p className="text-sm text-muted-foreground mt-2">Path: {currentFile}</p>
         </div>
       </div>
     )

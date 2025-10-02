@@ -8,54 +8,69 @@ interface SearchResult {
   matches: string[]
 }
 
-function searchInDirectory(dirPath: string, query: string, basePath = ""): SearchResult[] {
+function searchFiles(dirPath: string, query: string, basePath = ""): SearchResult[] {
   const results: SearchResult[] = []
+  const lowerQuery = query.toLowerCase()
 
   try {
-    const items = fs.readdirSync(dirPath, { withFileTypes: true })
+    if (!fs.existsSync(dirPath)) {
+      return []
+    }
+
+    const items = fs.readdirSync(dirPath)
 
     for (const item of items) {
-      const fullPath = path.join(dirPath, item.name)
-      const relativePath = path.join(basePath, item.name)
+      if (item.startsWith(".")) continue
 
-      if (item.isDirectory()) {
-        results.push(...searchInDirectory(fullPath, query, relativePath))
-      } else if (item.isFile()) {
-        const extension = path.extname(item.name).toLowerCase()
-        if ([".md", ".txt", ".mdx"].includes(extension)) {
-          const matches: string[] = []
+      const fullPath = path.join(dirPath, item)
+      const relativePath = basePath ? path.join(basePath, item).replace(/\\/g, "/") : item
+      const stats = fs.statSync(fullPath)
 
-          // Search in filename
-          if (item.name.toLowerCase().includes(query.toLowerCase())) {
-            matches.push(`Filename: ${item.name}`)
+      if (stats.isDirectory()) {
+        // Recursively search in subdirectories
+        const subResults = searchFiles(fullPath, query, relativePath)
+        results.push(...subResults)
+      } else if (stats.isFile()) {
+        const extension = path.extname(item).toLowerCase()
+        if (![".md", ".txt", ".mdx"].includes(extension)) continue
+
+        // Check if filename matches
+        const nameMatches = item.toLowerCase().includes(lowerQuery)
+
+        // Check if content matches
+        let contentMatches = false
+        const matches: string[] = []
+
+        try {
+          const content = fs.readFileSync(fullPath, "utf-8")
+          const lines = content.split("\n")
+
+          for (let i = 0; i < lines.length; i++) {
+            if (lines[i].toLowerCase().includes(lowerQuery)) {
+              contentMatches = true
+              // Get context (line with match, limited to 100 chars)
+              const matchLine = lines[i].substring(0, 100)
+              matches.push(`Line ${i + 1}: ${matchLine}`)
+
+              // Limit to 3 matches per file
+              if (matches.length >= 3) break
+            }
           }
+        } catch (readError) {
+          console.error(`Error reading file ${fullPath}:`, readError)
+        }
 
-          // Search in content
-          try {
-            const content = fs.readFileSync(fullPath, "utf-8")
-            const lines = content.split("\n")
-
-            lines.forEach((line, index) => {
-              if (line.toLowerCase().includes(query.toLowerCase())) {
-                matches.push(`Line ${index + 1}: ${line.trim()}`)
-              }
-            })
-          } catch (error) {
-            console.error(`Error reading file ${fullPath}:`, error)
-          }
-
-          if (matches.length > 0) {
-            results.push({
-              name: item.name,
-              path: relativePath,
-              matches: matches.slice(0, 5), // Limit to 5 matches per file
-            })
-          }
+        if (nameMatches || contentMatches) {
+          results.push({
+            name: item,
+            path: relativePath,
+            matches: matches.length > 0 ? matches : ["Filename match"],
+          })
         }
       }
     }
   } catch (error) {
-    console.error("Error searching directory:", error)
+    console.error(`Error searching directory ${dirPath}:`, error)
   }
 
   return results
@@ -66,8 +81,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const query = searchParams.get("q")
 
+    console.log("Search API called with query:", query)
+
     if (!query || query.trim().length < 2) {
-      return NextResponse.json({ success: false, error: "Query must be at least 2 characters long" }, { status: 400 })
+      return NextResponse.json({
+        success: false,
+        error: "Query must be at least 2 characters long",
+      })
     }
 
     const markdownsPath = path.join(process.cwd(), "Markdowns")
@@ -79,7 +99,8 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const results = searchInDirectory(markdownsPath, query.trim())
+    const results = searchFiles(markdownsPath, query.trim())
+    console.log(`Search completed. Found ${results.length} results`)
 
     return NextResponse.json({
       success: true,
@@ -87,6 +108,12 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error("Search API Error:", error)
-    return NextResponse.json({ success: false, error: "Search failed" }, { status: 500 })
+    return NextResponse.json(
+      {
+        success: false,
+        error: `Search failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      },
+      { status: 500 },
+    )
   }
 }
