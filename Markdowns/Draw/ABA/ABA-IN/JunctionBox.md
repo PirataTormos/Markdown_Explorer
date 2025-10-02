@@ -1,0 +1,1 @@
+Las cajas de conexiones se almacenan en las ZONAS *-IN-JB mediante TEMPLATES (/TENI). 

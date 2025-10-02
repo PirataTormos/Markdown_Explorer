@@ -1,0 +1,29 @@
+{
+  "folders": [
+    {
+      "name": "CHEQUEO_LONGITUD_TUBI",
+      "path": "/Markdowns/Model/CHEQUEO_LONGITUD_TUBI/chequeo_longitud_tubi_folder.json"
+    },
+    {
+      "name": "Coordemadas",
+      "path": "/Markdowns/Model/Coordemadas/coordemadas_folder.json"
+    },
+    {
+      "name": "INSULATION",
+      "path": "/Markdowns/Model/INSULATION/insulation_folder.json"
+    },
+    {
+      "name": "Progress",
+      "path": "/Markdowns/Model/Progress/progress_folder.json"
+    },
+    {
+      "name": "SPMAT",
+      "path": "/Markdowns/Model/SPMAT/spmat_folder.json"
+    },
+    {
+      "name": "TEMPLATES",
+      "path": "/Markdowns/Model/TEMPLATES/templates_folder.json"
+    }
+  ],
+  "files": []
+}
