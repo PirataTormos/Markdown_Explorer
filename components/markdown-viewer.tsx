@@ -9,7 +9,6 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { CustomSyntaxHighlighter } from "./syntax-highlighter"
 import type { JSX } from "react/jsx-runtime"
-import { LandingPage } from "./landing-page"
 
 interface FileContent {
   content: string
@@ -305,7 +304,15 @@ export function MarkdownViewer() {
   }
 
   if (!currentFile) {
-    return <LandingPage />
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <FileText className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Welcome to Markdown Explorer</h2>
+          <p className="text-muted-foreground">Select a file from the sidebar to start reading</p>
+        </div>
+      </div>
+    )
   }
 
   if (loading) {

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Search, FileText, Folder, FolderOpen, Loader2, RefreshCw, AlertCircle } from "lucide-react"
+import { Search, FileText, Folder, FolderOpen, Loader2, RefreshCw, AlertCircle, FolderOpenIcon } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { useMarkdownStore } from "@/lib/store"
+import { useToast } from "@/hooks/use-toast"
 
 interface FileNode {
   name: string
@@ -41,8 +42,10 @@ export function AppSidebar() {
   const [searchResults, setSearchResults] = React.useState<SearchResult[]>([])
   const [searching, setSearching] = React.useState(false)
   const [expandedFolders, setExpandedFolders] = React.useState<Set<string>>(new Set())
+  const [openingFolder, setOpeningFolder] = React.useState(false)
 
   const { setCurrentFile, currentFile } = useMarkdownStore()
+  const { toast } = useToast()
 
   React.useEffect(() => {
     loadFiles()
@@ -114,6 +117,43 @@ export function AppSidebar() {
       setSearchResults([])
     } finally {
       setSearching(false)
+    }
+  }
+
+  const handleOpenFolder = async () => {
+    try {
+      setOpeningFolder(true)
+
+      const response = await fetch("/api/open-folder", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        toast({
+          title: "Explorador abierto",
+          description: `Se abrió el explorador en: ${data.path}`,
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "No se pudo abrir el explorador",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error opening folder:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo abrir el explorador de archivos",
+        variant: "destructive",
+      })
+    } finally {
+      setOpeningFolder(false)
     }
   }
 
@@ -209,19 +249,41 @@ export function AppSidebar() {
           />
           {searching && <Loader2 className="h-4 w-4 animate-spin" />}
         </div>
-        <Button onClick={loadFiles} variant="outline" size="sm" className="w-full bg-transparent" disabled={loading}>
-          {loading ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              Loading...
-            </>
-          ) : (
-            <>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh Files
-            </>
-          )}
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={loadFiles} variant="outline" size="sm" className="flex-1 bg-transparent" disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Loading...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </>
+            )}
+          </Button>
+          <Button
+            onClick={handleOpenFolder}
+            variant="outline"
+            size="sm"
+            className="flex-1 bg-transparent"
+            disabled={openingFolder}
+            title="Abrir carpeta en explorador"
+          >
+            {openingFolder ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Abriendo...
+              </>
+            ) : (
+              <>
+                <FolderOpenIcon className="h-4 w-4 mr-2" />
+                Explorar
+              </>
+            )}
+          </Button>
+        </div>
       </SidebarHeader>
 
       <SidebarContent>
