@@ -32,6 +32,8 @@ function isValidDirectory(dirPath: string): boolean {
 }
 
 function getFileStructure(dirPath: string, basePath = ""): FileNode[] {
+  const results: FileNode[] = []
+
   try {
     console.log(`Reading directory: ${dirPath}`)
 
@@ -40,78 +42,66 @@ function getFileStructure(dirPath: string, basePath = ""): FileNode[] {
       return []
     }
 
-    // Check if it's actually a directory
     if (!isValidDirectory(dirPath)) {
       console.log(`Path is not a directory: ${dirPath}`)
       return []
     }
 
-    let items
-    try {
-      items = fs.readdirSync(dirPath, { withFileTypes: true })
-    } catch (readError) {
-      console.error(`Error reading directory ${dirPath}:`, readError)
-      return []
-    }
-
+    const items = fs.readdirSync(dirPath)
     console.log(`Found ${items.length} items in ${dirPath}`)
 
-    const result: FileNode[] = []
-
-    for (const item of items) {
+    for (const itemName of items) {
       try {
         // Skip hidden files and system files
-        if (item.name.startsWith(".")) {
-          console.log(`Skipping hidden file: ${item.name}`)
+        if (itemName.startsWith(".")) {
+          console.log(`Skipping hidden file: ${itemName}`)
           continue
         }
 
-        const fullPath = path.join(dirPath, item.name)
-        const relativePath = path.join(basePath, item.name).replace(/\\/g, "/")
+        const fullPath = path.join(dirPath, itemName)
+        const relativePath = basePath ? path.join(basePath, itemName).replace(/\\/g, "/") : itemName
 
-        console.log(`Processing: ${item.name} (${item.isDirectory() ? "directory" : "file"})`)
+        console.log(`Processing: ${itemName}`)
 
-        if (item.isDirectory()) {
-          // Double-check it's actually a directory
+        const stats = fs.statSync(fullPath)
+
+        if (stats.isDirectory()) {
           if (isValidDirectory(fullPath)) {
             const children = getFileStructure(fullPath, relativePath)
-            // Only include the folder if it has markdown files (directly or indirectly)
             if (children.length > 0) {
-              result.push({
-                name: item.name,
+              results.push({
+                name: itemName,
                 path: relativePath,
                 type: "directory",
                 children,
               })
-              console.log(`Added directory: ${item.name} with ${children.length} children`)
+              console.log(`Added directory: ${itemName} with ${children.length} children`)
             } else {
-              console.log(`Skipped empty directory: ${item.name}`)
+              console.log(`Skipped empty directory: ${itemName}`)
             }
-          } else {
-            console.log(`Skipped invalid directory: ${item.name}`)
           }
-        } else if (item.isFile()) {
-          // Double-check it's actually a file and has valid extension
+        } else if (stats.isFile()) {
           if (isValidMarkdownFile(fullPath)) {
-            const extension = path.extname(item.name).toLowerCase()
-            result.push({
-              name: item.name,
+            const extension = path.extname(itemName).toLowerCase()
+            results.push({
+              name: itemName,
               path: relativePath,
               type: "file",
               extension,
             })
-            console.log(`Added file: ${item.name}`)
+            console.log(`Added file: ${itemName}`)
           } else {
-            console.log(`Skipped invalid or unsupported file: ${item.name}`)
+            console.log(`Skipped invalid or unsupported file: ${itemName}`)
           }
         }
       } catch (itemError) {
-        console.error(`Error processing item ${item.name}:`, itemError)
-        // Continue with other items
+        console.error(`Error processing item ${itemName}:`, itemError)
+        continue
       }
     }
 
-    const sorted = result.sort((a, b) => {
+    // Sort results: directories first, then files, both alphabetically
+    const sorted = results.sort((a, b) => {
       if (a.type !== b.type) {
         return a.type === "directory" ? -1 : 1
       }
@@ -126,25 +116,11 @@ function getFileStructure(dirPath: string, basePath = ""): FileNode[] {
   }
 }
 
-export async function GET(request: NextRequest) {
+function createSampleFiles(markdownsPath: string) {
   try {
-    console.log("Files API called")
-    const markdownsPath = path.resolve(process.cwd(), "Markdowns")
-    console.log(`Markdowns path: ${markdownsPath}`)
+    console.log("Creating sample files...")
 
-    // Create Markdowns directory if it doesn't exist
-    if (!fs.existsSync(markdownsPath)) {
-      console.log("Creating Markdowns directory...")
-      try {
-        fs.mkdirSync(markdownsPath, { recursive: true })
-        console.log("Markdowns directory created successfully")
-      } catch (mkdirError) {
-        console.error("Error creating Markdowns directory:", mkdirError)
-        throw new Error(`Failed to create Markdowns directory: ${mkdirError}`)
-      }
-
-      // Create sample files
-      const sampleContent = `# Welcome to Markdown Explorer
+    const sampleContent = `# Welcome to Markdown Explorer
 
 This is a sample Markdown file to demonstrate the functionality.
 
@@ -173,18 +149,18 @@ function hello() {
 Enjoy exploring your Markdown documents!
 `
 
-      try {
-        console.log("Creating sample README.md...")
-        const readmePath = path.join(markdownsPath, "README.md")
-        fs.writeFileSync(readmePath, sampleContent, "utf8")
-        console.log("Sample README.md created successfully")
+    const readmePath = path.join(markdownsPath, "README.md")
+    if (!fs.existsSync(readmePath)) {
+      fs.writeFileSync(readmePath, sampleContent, "utf8")
+      console.log("Sample README.md created successfully")
+    }
 
-        // Create sample folder structure
-        const sampleDir = path.join(markdownsPath, "Examples")
-        console.log("Creating Examples directory...")
-        fs.mkdirSync(sampleDir, { recursive: true })
+    // Create sample folder structure
+    const sampleDir = path.join(markdownsPath, "Examples")
+    if (!fs.existsSync(sampleDir)) {
+      fs.mkdirSync(sampleDir, { recursive: true })
 
-        const exampleContent = `# Example Document
+      const exampleContent = `# Example Document
 
 This is an example document in a subfolder.
 
@@ -217,13 +193,42 @@ If you add images to your Markdowns folder, they will display here:
 ![Sample Image](./sample-image.png)
 `
 
-        console.log("Creating example.md...")
-        const examplePath = path.join(sampleDir, "example.md")
+      const examplePath = path.join(sampleDir, "example.md")
+      if (!fs.existsSync(examplePath)) {
         fs.writeFileSync(examplePath, exampleContent, "utf8")
         console.log("Example files created successfully")
-      } catch (fileError) {
-        console.error("Error creating sample files:", fileError)
-        // Continue anyway, maybe user will add their own files
+      }
+    }
+  } catch (fileError) {
+    console.error("Error creating sample files:", fileError)
+    // Don't throw, just log the error
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    console.log("Files API called")
+    const markdownsPath = path.resolve(process.cwd(), "Markdowns")
+    console.log(`Markdowns path: ${markdownsPath}`)
+
+    // Create Markdowns directory if it doesn't exist
+    if (!fs.existsSync(markdownsPath)) {
+      console.log("Creating Markdowns directory...")
+      try {
+        fs.mkdirSync(markdownsPath, { recursive: true })
+        console.log("Markdowns directory created successfully")
+
+        // Create sample files
+        createSampleFiles(markdownsPath)
+      } catch (mkdirError) {
+        console.error("Error creating Markdowns directory:", mkdirError)
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Failed to create Markdowns directory: ${mkdirError instanceof Error ? mkdirError.message : "Unknown error"}`,
+          },
+          { status: 500 },
+        )
       }
     }
 

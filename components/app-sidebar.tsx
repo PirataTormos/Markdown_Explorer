@@ -67,26 +67,35 @@ export function AppSidebar() {
 
       console.log("Loading files from API...")
 
-      const response = await fetch("/api/files")
+      const response = await fetch("/api/files", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
       console.log("Response status:", response.status)
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorText = await response.text()
+        console.error("API Error Response:", errorText)
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`)
       }
 
       const data = await response.json()
       console.log("API Response:", data)
 
       if (data.success) {
-        setFiles(data.data)
-        console.log("Files loaded successfully:", data.data.length, "items")
+        setFiles(data.data || [])
+        console.log("Files loaded successfully:", (data.data || []).length, "items")
       } else {
         setError(data.error || "Failed to load files")
         console.error("API returned error:", data.error)
       }
     } catch (error) {
       console.error("Error loading files:", error)
-      setError(error instanceof Error ? error.message : "Failed to load files")
+      const errorMessage = error instanceof Error ? error.message : "Failed to load files"
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
