@@ -1,21 +1,33 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
-import "./globals.css"
-import ClientLayout from "./clientLayout"
-
-const inter = Inter({ subsets: ["latin"] })
+import { GeistSans } from "geist/font/sans"
+import { GeistMono } from "geist/font/mono"
+import { ThemeProvider } from "@/components/theme-provider"
+import { SidebarProvider } from "@/components/ui/sidebar"
+import { Toaster } from "@/components/ui/toaster"
+import "@/app/globals.css"
 
 export const metadata: Metadata = {
   title: "Markdown Explorer",
-  description: "Explore and read Markdown documents with modern interface",
-  generator: "v0.dev",
+  description: "A modern markdown file explorer and viewer",
+    generator: 'v0.app'
 }
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode
-}) {
-  return <ClientLayout>{children}</ClientLayout>
+}>) {
+  return (
+    <html lang="en" suppressHydrationWarning className={`${GeistSans.variable} ${GeistMono.variable}`}>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <SidebarProvider>
+            {children}
+            <Toaster />
+          </SidebarProvider>
+        </ThemeProvider>
+      </body>
+    </html>
+  )
 }
