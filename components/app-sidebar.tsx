@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Search, FileText, Folder, FolderOpen, Loader2, RefreshCw, AlertCircle, FolderOpenIcon } from "lucide-react"
+import { Search, FileText, Folder, FolderOpen, Loader2, RefreshCw, AlertCircle } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -18,7 +18,6 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { useMarkdownStore } from "@/lib/store"
-import { useToast } from "@/hooks/use-toast"
 
 interface FileNode {
   name: string
@@ -43,11 +42,7 @@ export function AppSidebar() {
   const [searching, setSearching] = React.useState(false)
   const [expandedFolders, setExpandedFolders] = React.useState<Set<string>>(new Set())
 
-  const [maxNestingLevel, setMaxNestingLevel] = React.useState(0)
-
-
   const { setCurrentFile, currentFile } = useMarkdownStore()
-  const { toast } = useToast()
 
   React.useEffect(() => {
     loadFiles()
@@ -122,43 +117,6 @@ export function AppSidebar() {
     }
   }
 
-  const handleOpenFolder = async () => {
-    try {
-      setOpeningFolder(true)
-
-      const response = await fetch("/api/open-folder", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        toast({
-          title: "Explorador abierto",
-          description: `Se abrió el explorador en: ${data.path}`,
-        })
-      } else {
-        toast({
-          title: "Error",
-          description: data.error || "No se pudo abrir el explorador",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("Error opening folder:", error)
-      toast({
-        title: "Error",
-        description: "No se pudo abrir el explorador de archivos",
-        variant: "destructive",
-      })
-    } finally {
-      setOpeningFolder(false)
-    }
-  }
-
   const handleFileSelect = (filePath: string) => {
     console.log("File selected:", filePath)
     setCurrentFile(filePath)
@@ -174,27 +132,6 @@ export function AppSidebar() {
     setExpandedFolders(newExpanded)
   }
 
-  const calculateMaxNestingLevel = React.useCallback(
-    (nodes: FileNode[], currentLevel = 0): number => {
-      let maxLevel = currentLevel
-
-      for (const node of nodes) {
-        if (node.type === "directory" && expandedFolders.has(node.path) && node.children) {
-          const childLevel = calculateMaxNestingLevel(node.children, currentLevel + 1)
-          maxLevel = Math.max(maxLevel, childLevel)
-        }
-      }
-
-      return maxLevel
-    },
-    [expandedFolders],
-  )
-
-  React.useEffect(() => {
-    const newMaxLevel = calculateMaxNestingLevel(files)
-    setMaxNestingLevel(newMaxLevel)
-  }, [expandedFolders, files, calculateMaxNestingLevel])
-
   const renderFileTree = (nodes: FileNode[], level = 0) => {
     if (!nodes || nodes.length === 0) {
       return <div className="p-4 text-sm text-muted-foreground text-center">No files found</div>
@@ -208,12 +145,9 @@ export function AppSidebar() {
           <SidebarMenuItem key={node.path}>
             <Collapsible open={isExpanded} onOpenChange={() => toggleFolder(node.path)}>
               <CollapsibleTrigger asChild>
-                <SidebarMenuButton
-                  className="justify-start min-h-8 h-auto py-2 flex-1"
-                  style={{ paddingLeft: `${level * 16 + 8}px` }}
-                >
-                  {isExpanded ? <FolderOpen className="h-4 w-4 shrink-0" /> : <Folder className="h-4 w-4 shrink-0" />}
-                  <span className="ml-2 text-left leading-tight flex-1 break-words">{node.name}</span>
+                <SidebarMenuButton className="w-full justify-start">
+                  {isExpanded ? <FolderOpen className="h-4 w-4" /> : <Folder className="h-4 w-4" />}
+                  <span>{node.name}</span>
                 </SidebarMenuButton>
               </CollapsibleTrigger>
               <CollapsibleContent>
@@ -228,11 +162,10 @@ export function AppSidebar() {
             <SidebarMenuButton
               onClick={() => handleFileSelect(node.path)}
               isActive={currentFile === node.path}
-              className="justify-start min-h-8 h-auto py-2 flex-1"
-              style={{ paddingLeft: `${level * 16 + 8}px` }}
+              className="w-full justify-start"
             >
-              <FileText className="h-4 w-4 shrink-0" />
-              <span className="ml-2 text-left leading-tight flex-1 break-words">{node.name}</span>
+              <FileText className="h-4 w-4" />
+              <span>{node.name}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         )
@@ -254,19 +187,17 @@ export function AppSidebar() {
         <SidebarMenuButton
           onClick={() => handleFileSelect(result.path)}
           isActive={currentFile === result.path}
-          className="justify-start min-h-8 h-auto py-2 flex-1"
+          className="w-full justify-start"
         >
-          <FileText className="h-4 w-4 shrink-0" />
-          <span className="ml-2 text-left leading-tight flex-1 break-words">{result.name}</span>
+          <FileText className="h-4 w-4" />
+          <span>{result.name}</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
     ))
   }
 
-  const sidebarWidth = Math.max(280, 280 + maxNestingLevel * 40)
-
   return (
-    <Sidebar style={{ width: `${sidebarWidth}px` }} className="transition-all duration-300 ease-in-out">
+    <Sidebar>
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
           <Search className="h-4 w-4" />
@@ -278,41 +209,19 @@ export function AppSidebar() {
           />
           {searching && <Loader2 className="h-4 w-4 animate-spin" />}
         </div>
-        <div className="flex gap-2">
-          <Button onClick={loadFiles} variant="outline" size="sm" className="flex-1 bg-transparent" disabled={loading}>
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Loading...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
-              </>
-            )}
-          </Button>
-          <Button
-            onClick={handleOpenFolder}
-            variant="outline"
-            size="sm"
-            className="flex-1 bg-transparent"
-            disabled={openingFolder}
-            title="Abrir carpeta en explorador"
-          >
-            {openingFolder ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Abriendo...
-              </>
-            ) : (
-              <>
-                <FolderOpenIcon className="h-4 w-4 mr-2" />
-                Explorar
-              </>
-            )}
-          </Button>
-        </div>
+        <Button onClick={loadFiles} variant="outline" size="sm" className="w-full bg-transparent" disabled={loading}>
+          {loading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              Loading...
+            </>
+          ) : (
+            <>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh Files
+            </>
+          )}
+        </Button>
       </SidebarHeader>
 
       <SidebarContent>
